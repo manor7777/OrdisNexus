@@ -1,0 +1,12 @@
+import gzip, json, sys
+c = json.loads(gzip.decompress(open('assets/catalog.json.gz','rb').read()))
+print("KEYS", list(c.keys()))
+print("WISP", c['recipes'].get('/lotus/powersuits/wisp/wispprime'))
+print("ITEMS", [(i['n'],i['c'],i['m'],i['x']) for i in c['items'] if i['n'] in ('Wisp Prime','Braton Prime','Nami Skyla Prime','Rhino','Carrier Prime')])
+ks=[k for k,v in c['relics'].items() if v['n']=='Axi A17']; print("RELIC", ks, [c['relics'][k] for k in ks][:1])
+n=c['names']; print("NAMES", n.get('/lotus/types/recipes/warframerecipes/wispprimesystemsblueprint'), '|', n.get('/lotus/types/recipes/warframerecipes/wispprimesystemscomponent'), '|', n.get('/lotus/types/items/miscitems/ferrite'), '|', n.get('/lotus/types/recipes/warframerecipes/wispprimehelmetblueprint'))
+print("SLUG", c['slugs'].get('/lotus/types/recipes/warframerecipes/wispprimesystemsblueprint'))
+print("DROPS", c['drops'].get('Wisp Prime Systems Blueprint'), c['drops'].get('Orokin Cell', [])[:3], len(c['drops'].get('Ferrite', [])))
+print("RES", list(c['res'].items())[:3])
+print("PRIME", [p for p in c['primes'] if p['n']=='Wisp Prime'])
+print("CATS", sorted({i['c'] for i in c['items']}))
