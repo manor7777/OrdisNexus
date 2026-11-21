@@ -8,10 +8,12 @@ Files are matched by name (any prefix/suffix), so `ExportRecipes.json`,
 `ExportRecipes_en.json` and `abc123-ExportRecipes.json` all work. An optional
 `warframe_lang_dict.json` ({lowercase unique name: {"name": ...}}) adds names.
 
-Output: names + icon paths for every item, and every prime item with the
-parts (blueprint + recipe components) it needs.
+Output: names + icon paths for every item, every prime item with the parts it
+needs, plus (schema v2) all recipes, masterable items, relics and their rewards,
+resource location hints, market slugs and drop sources.
 """
 import gzip, json, lzma, re, sys, urllib.request
+from urllib.error import URLError
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -57,7 +59,7 @@ def dir_source(d):
 
 def fetch_source():
     def dl(url):
-        req = urllib.request.Request(url, headers={"User-Agent": "InventoryCompare-catalog"})
+        req = urllib.request.Request(url, headers={"User-Agent": "OrdisNexus-catalog"})
         with urllib.request.urlopen(req, timeout=120) as r:
             return r.read()
 
@@ -93,7 +95,7 @@ def build(get, lang_path=None):
     items = {}  # unique -> (name, productCategory)
     for base in ["ExportWeapons", "ExportWarframes", "ExportSentinels", "ExportResources",
                  "ExportUpgrades", "ExportCustoms", "ExportFlavour", "ExportRelicArcane",
-                 "ExportDrones", "ExportKeys"]:
+                 "ExportDrones", "ExportKeys", "ExportGear"]:
         data = get(base)
         for lst in (data or {}).values():
             if not isinstance(lst, list):
@@ -138,6 +140,121 @@ def build(get, lang_path=None):
     return {"names": names, "icons": icons, "primes": primes}
 
 
+DROPS_URL = "https://raw.githubusercontent.com/WFCD/warframe-drop-data/gh-pages/data/all.slim.json"
+MARKET_URL = "https://api.warframe.market/v2/items"
+REFINEMENTS = ("Bronze", "Silver", "Gold", "Platinum")
+
+
+def http_json(url):
+    req = urllib.request.Request(url, headers={"User-Agent": "OrdisNexus-catalog", "Accept": "application/json",
+                                                "Language": "en", "Platform": "pc"})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        return json.loads(r.read())
+
+
+def strip_store(u):
+    return u.replace("/StoreItems", "", 1)
+
+
+def build_v2(get, cat, online=True):
+    """Adds recipes / items / relics / res / slugs / drops to `cat` (best effort per section)."""
+    names = cat["names"]
+
+    # ---- recipes (result -> how to build it)
+    recipes = {}
+    for r in (get("ExportRecipes") or {}).get("ExportRecipes", []):
+        res = r.get("resultType")
+        if not res or res.lower() in recipes:
+            continue
+        recipes[res.lower()] = {
+            "r": res, "b": r["uniqueName"], "c": r.get("buildPrice", 0), "t": r.get("buildTime", 0),
+            "n": r.get("num", 1), "i": [[i["ItemType"], i.get("ItemCount", 1)] for i in r.get("ingredients", [])],
+        }
+        # give blueprints and components readable names when nothing better is known
+        rn = names.get(res.lower())
+        if rn and r["uniqueName"].lower() not in names:
+            names[r["uniqueName"].lower()] = rn + " Blueprint"
+    cat["recipes"] = recipes
+
+    # ---- masterable items
+    items = []
+    for base, default_cat in (("ExportWarframes", "Suits"), ("ExportWeapons", None), ("ExportSentinels", "Sentinels")):
+        data = get(base) or {}
+        for key, lst in data.items():
+            if key not in ("ExportWarframes", "ExportWeapons", "ExportSentinels") or not isinstance(lst, list):
+                continue
+            for x in lst:
+                u, n = x.get("uniqueName"), x.get("name")
+                if not u or not n:
+                    continue
+                pc = x.get("productCategory") or default_cat
+                if pc is None:
+                    continue
+                if base == "ExportWarframes" and "/Archwing/" in u:
+                    pc = "SpaceSuits"
+                items.append({"u": u, "n": n, "c": pc, "m": x.get("masteryReq", 0),
+                              "x": XP_BY_CATEGORY.get(pc, WEAPON_XP)})
+    cat["items"] = items
+
+    # ---- relics
+    relics = {}
+    for r in (get("ExportRelicArcane") or {}).get("ExportRelicArcane", []):
+        u = r.get("uniqueName", "")
+        if "VoidProjection" not in u or not r.get("relicRewards"):
+            continue
+        base = u
+        for ref in REFINEMENTS:
+            if u.endswith(ref):
+                base = u[: -len(ref)]
+        if base.lower() in relics:
+            continue
+        relics[base.lower()] = {
+            "n": r["name"].replace(" Relic", ""),
+            "rw": [[strip_store(w["rewardName"]), w.get("rarity", "COMMON").lower(), w.get("itemCount", 1)]
+                   for w in r["relicRewards"]],
+        }
+    cat["relics"] = relics
+
+    # ---- resource location hints from the in-game description
+    res = {}
+    for x in (get("ExportResources") or {}).get("ExportResources", []):
+        d = x.get("description") or ""
+        m = re.search(r"Location:\s*(.+)", d, re.S)
+        if m:
+            res[x["uniqueName"].lower()] = " ".join(m.group(1).split())[:400]
+    cat["res"] = res
+
+    # ---- warframe.market slugs (+ names for parts that have none)
+    slugs = {}
+    if online:
+        try:
+            for it in http_json(MARKET_URL).get("data", []):
+                ref, slug = it.get("gameRef"), it.get("slug")
+                if ref and slug:
+                    slugs[ref.lower()] = slug
+                    nm = (it.get("i18n", {}).get("en", {}) or {}).get("name")
+                    if nm and "prime" in slug:
+                        names[ref.lower()] = nm
+        except (URLError, ValueError, OSError) as e:
+            print("market list failed:", e)
+    cat["slugs"] = slugs
+
+    # ---- drop sources by item name
+    drops = {}
+    if online:
+        try:
+            for d in http_json(DROPS_URL):
+                place = re.sub(r"<[^>]+>", "", d.get("place", ""))
+                item = d.get("item")
+                if not item or "Relic" in place:
+                    continue
+                drops.setdefault(item, []).append([place, (d.get("rarity") or "")[:1], round(float(d.get("chance", 0)), 2)])
+        except (URLError, ValueError, OSError) as e:
+            print("drops failed:", e)
+    cat["drops"] = drops
+    return cat
+
+
 def main():
     args = sys.argv[1:]
     lang = None
@@ -150,8 +267,16 @@ def main():
     else:
         sys.exit(__doc__)
     cat = build(get, lang)
+    cat = build_v2(get, cat, online="--fetch" in args)
+    if OUT.exists():
+        old = json.loads(gzip.decompress(OUT.read_bytes()))
+        for k in ("slugs", "drops"):
+            if not cat.get(k) and old.get(k):
+                cat[k] = old[k]
     data = json.dumps(cat, separators=(",", ":"), ensure_ascii=False).encode()
     OUT.write_bytes(gzip.compress(data, 9, mtime=0))
+    print(f"{len(cat['recipes'])} recipes, {len(cat['items'])} items, {len(cat['relics'])} relics, "
+          f"{len(cat['res'])} resource hints, {len(cat['slugs'])} market slugs, {len(cat['drops'])} dropped items")
     print(f"{len(cat['names'])} names, {len(cat['icons'])} icons, {len(cat['primes'])} primes "
           f"-> {OUT} ({OUT.stat().st_size/1e3:.0f} kB gz, {len(data)/1e6:.1f} MB raw)")
 
