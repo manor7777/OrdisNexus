@@ -92,16 +92,22 @@ pub fn default_ee_log() -> Option<PathBuf> {
 /// A prime part exists as an unbuilt blueprint and as a built component. Given
 /// either path, returns the blueprint form (or the path itself when there is no pair).
 pub fn blueprint_form(unique: &str) -> String {
-    match unique.strip_suffix("Component") {
-        Some(base) => format!("{base}Blueprint"),
-        None => unique.to_string(),
-    }
+    swap_suffix(unique, "Component", "Blueprint")
 }
 
 pub fn component_form(unique: &str) -> String {
-    match unique.strip_suffix("Blueprint") {
-        Some(base) => format!("{base}Component"),
-        None => unique.to_string(),
+    swap_suffix(unique, "Blueprint", "Component")
+}
+
+fn swap_suffix(unique: &str, from: &str, to: &str) -> String {
+    let n = unique.len();
+    if n >= from.len() && unique.is_char_boundary(n - from.len()) && unique[n - from.len()..].eq_ignore_ascii_case(from) {
+        let tail = &unique[n - from.len()..];
+        // keep a lowercase path lowercase
+        let to = if tail == tail.to_lowercase() { to.to_lowercase() } else { to.to_string() };
+        format!("{}{}", &unique[..n - from.len()], to)
+    } else {
+        unique.to_string()
     }
 }
 
@@ -134,5 +140,6 @@ mod tests {
         assert_eq!(blueprint_form("/A/WispPrimeSystemsComponent"), "/A/WispPrimeSystemsBlueprint");
         assert_eq!(component_form("/A/WispPrimeSystemsBlueprint"), "/A/WispPrimeSystemsComponent");
         assert_eq!(blueprint_form("/A/AcceltraPrimeStock"), "/A/AcceltraPrimeStock");
+        assert_eq!(blueprint_form("/a/wispprimesystemscomponent"), "/a/wispprimesystemsblueprint");
     }
 }

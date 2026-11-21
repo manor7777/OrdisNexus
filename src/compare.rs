@@ -114,6 +114,19 @@ pub fn diff(a: &Inventory, b: &Inventory) -> Vec<Row> {
     rows
 }
 
+/// Items whose count went up between two inventories: (path, how many more).
+pub fn gained(before: &Inventory, after: &Inventory) -> Vec<(String, u64)> {
+    let mut out: Vec<(String, u64)> = after
+        .iter()
+        .filter_map(|(k, e)| {
+            let b = before.get(k).map_or(0, |x| x.count);
+            (e.count > b).then(|| (k.clone(), e.count - b))
+        })
+        .collect();
+    out.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,6 +146,14 @@ mod tests {
         assert_eq!((forma.a, forma.b), (5, 2));
         let ex = rows.iter().find(|r| r.name == "Excalibur").unwrap();
         assert_eq!((ex.a, ex.b), (1, 0));
+    }
+
+    #[test]
+    fn gained_items() {
+        let a = flatten(&json!({"MiscItems": [{"ItemType": "/Lotus/Forma", "ItemCount": 5}]}));
+        let b = flatten(&json!({"MiscItems": [{"ItemType": "/Lotus/Forma", "ItemCount": 7}, {"ItemType": "/Lotus/Oxium", "ItemCount": 40}]}));
+        assert_eq!(gained(&a, &b), vec![("/Lotus/Oxium".to_string(), 40), ("/Lotus/Forma".to_string(), 2)]);
+        assert!(gained(&b, &a).is_empty());
     }
 
     #[test]

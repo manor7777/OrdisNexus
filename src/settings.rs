@@ -127,6 +127,7 @@ pub struct Settings {
     /// Free-text "what I'm doing tonight" shown to friends when activity sharing is on.
     pub activity: String,
     pub auto_reload: bool,
+    pub live_enabled: bool,
     pub ee_log_path: Option<String>,
     pub ee_patterns: Vec<EePattern>,
     pub llm: LlmCfg,
@@ -151,6 +152,7 @@ impl Default for Settings {
             never_share: vec![],
             activity: String::new(),
             auto_reload: true,
+            live_enabled: true,
             ee_log_path: None,
             ee_patterns: default_patterns(),
             llm: LlmCfg::default(),
