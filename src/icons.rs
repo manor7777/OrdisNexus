@@ -31,7 +31,7 @@ pub fn cache_dir() -> PathBuf {
         .or_else(|| std::env::var_os("XDG_CACHE_HOME").map(PathBuf::from))
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
         .unwrap_or_else(std::env::temp_dir);
-    base.join("InventoryCompare").join("icons")
+    base.join("OrdisNexus").join("icons")
 }
 
 /// Stable, short cache file name for a texture path (FNV-1a).

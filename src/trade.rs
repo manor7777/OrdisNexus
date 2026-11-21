@@ -106,6 +106,22 @@ pub struct Plan {
     pub status: Vec<[Status; 2]>,
 }
 
+fn count_of(inv: &Inventory, unique: &str) -> u64 {
+    inv.get(unique).map_or(0, |e| e.count)
+}
+
+/// `(copies that count as having the part, copies that can be handed over)`.
+fn have_give(inv: &Inventory, unique: &str) -> (u32, u32) {
+    let built = count_of(inv, unique);
+    match unique.strip_suffix("Component") {
+        Some(base) => {
+            let bp = count_of(inv, &format!("{base}Blueprint"));
+            ((built + bp) as u32, bp as u32)
+        }
+        None => (built as u32, built as u32),
+    }
+}
+
 pub fn plan(cat: &Catalog, inv: [&Inventory; 2], prog: [&Progress; 2]) -> Plan {
     let mut plan = Plan::default();
     for (pi, prime) in cat.primes.iter().enumerate() {
@@ -116,10 +132,11 @@ pub fn plan(cat: &Catalog, inv: [&Inventory; 2], prog: [&Progress; 2]) -> Plan {
         plan.status.push(st);
         let mut need_parts = Vec::new();
         for (pt, part) in prime.parts.iter().enumerate() {
-            let c = [
-                inv[0].get(&part.unique).map_or(0, |e| e.count) as u32,
-                inv[1].get(&part.unique).map_or(0, |e| e.count) as u32,
-            ];
+            // Parts you hold as an unbuilt blueprint or as a built component both
+            // count as "having" the part, but only blueprints can be handed over.
+            let hg = [have_give(inv[0], &part.unique), have_give(inv[1], &part.unique)];
+            let c = [hg[0].0, hg[1].0];
+            let give_cap = [hg[0].1, hg[1].1];
             let missing = [0, 1].map(|i| if st[i] == Status::Missing { part.need.saturating_sub(c[i]) } else { 0 });
             if missing != [0, 0] {
                 need_parts.push(PartNeed { part: pt, have: c, missing });
@@ -130,7 +147,7 @@ pub fn plan(cat: &Catalog, inv: [&Inventory; 2], prog: [&Progress; 2]) -> Plan {
             for x in 0..2 {
                 let y = 1 - x;
                 let need_y = if st[y] == Status::Missing { part.need.saturating_sub(c[y]) } else { 0 };
-                let spare_x = if st[x] == Status::Missing { c[x].saturating_sub(part.need) } else { c[x] };
+                let spare_x = (if st[x] == Status::Missing { c[x].saturating_sub(part.need) } else { c[x] }).min(give_cap[x]);
                 let give = spare_x.min(need_y);
                 if give > 0 {
                     let kind = if st[x] == Status::Mastered { Kind::Free } else { Kind::YourCall };

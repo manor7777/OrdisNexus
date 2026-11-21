@@ -5,8 +5,8 @@ fn main() {
     {
         let mut res = winresource::WindowsResource::new();
         res.set_icon("assets/icon.ico");
-        res.set("ProductName", "Inventory Compare");
-        res.set("FileDescription", "Inventory Compare");
+        res.set("ProductName", "Ordis Nexus");
+        res.set("FileDescription", "Ordis Nexus");
         res.compile().expect("failed to embed Windows resources");
     }
 }
