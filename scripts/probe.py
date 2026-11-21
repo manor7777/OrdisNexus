@@ -6,7 +6,7 @@ def dl(u):
 def show(label, obj, n=900):
     print("=====", label); print(json.dumps(obj, ensure_ascii=False)[:n])
 dec = lzma.LZMADecompressor(format=lzma.FORMAT_ALONE)
-raw = dl("https://origin.warframe.com/PublicExport/index_en.txt.lzma")
+raw = dl("https://content.warframe.com/PublicExport/index_en.txt.lzma")
 try: text = dec.decompress(raw).decode()
 except lzma.LZMAError: text = b"".join(dec.decompress(raw[i:i+1]) for i in range(len(raw))).decode()
 names = [l.strip() for l in text.splitlines() if l.strip()]
@@ -45,6 +45,6 @@ try:
         v = ws.get(k); show("ws."+k, v[:1] if isinstance(v, list) else v, 700)
 except Exception as e: print("ws fail", e)
 try:
-    st = json.loads(dl("https://api.warframe.market/v1/items/wisp_prime_systems/statistics"))
+    st = json.loads(dl("https://api.warframe.market/v2/items"))
     show("market stats", st, 600)
 except Exception as e: print("market fail", e)

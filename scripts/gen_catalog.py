@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "assets" / "catalog.json.gz"
 CONTENT = "https://content.warframe.com/PublicExport/"
-INDEX = "https://origin.warframe.com/PublicExport/index_en.txt.lzma"
+INDEX = "https://content.warframe.com/PublicExport/index_en.txt.lzma"
 
 # productCategory -> XP at which the item is mastered
 WEAPON_XP = 450000
