@@ -52,7 +52,7 @@ fn matches(app: &App, r: &Row) -> bool {
             || r.path.to_lowercase().contains(&app.search.to_lowercase()))
 }
 
-fn trade_view(app: &mut App, ui: &mut egui::Ui {
+fn trade_view(app: &mut App, ui: &mut egui::Ui) {
     let Some(plan) = &app.plan else { return };
     let cat = &app.cat;
     let icons = &mut app.icons;
@@ -135,7 +135,7 @@ fn trade_view(app: &mut App, ui: &mut egui::Ui {
     });
 }
 
-fn needs_view(app: &mut App, ui: &mut egui::Ui {
+fn needs_view(app: &mut App, ui: &mut egui::Ui) {
     enum Line {
         Header(usize),
         Part(usize, usize),
@@ -252,7 +252,7 @@ fn needs_view(app: &mut App, ui: &mut egui::Ui {
     });
 }
 
-fn compare_view(app: &mut App, ui: &mut egui::Ui {
+fn compare_view(app: &mut App, ui: &mut egui::Ui) {
     let [na, nb] = app.names();
     ui.horizontal_wrapped(|ui| {
         ui.add(egui::TextEdit::singleline(&mut app.search).hint_text("🔍  Have you got…?").desired_width(240.0));
