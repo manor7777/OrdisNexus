@@ -248,7 +248,7 @@ def build_v2(get, cat, online=True):
                 item = d.get("item")
                 if not item or "Relic" in place:
                     continue
-                drops.setdefault(item, []).append([place, (d.get("rarity") or "")[:1], round(float(d.get("chance", 0)), 2)])
+                drops.setdefault(item, []).append([place, (d.get("rarity") or "")[:1], round(float(d.get("chance") or 0), 2)])
         except (URLError, ValueError, OSError) as e:
             print("drops failed:", e)
     cat["drops"] = drops
