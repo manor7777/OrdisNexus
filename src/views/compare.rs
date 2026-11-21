@@ -55,8 +55,8 @@ fn matches(app: &App, r: &Row) -> bool {
 fn trade_view(app: &mut App, ui: &mut egui::Ui) {
     let Some(plan) = &app.plan else { return };
     let cat = &app.cat;
-    let icons = &mut app.icons;
     let names = app.names();
+    let icons = &mut app.icons;
     let count = |from: usize| plan.transfers.iter().filter(|t| t.from == from).map(|t| t.count).sum::<u32>();
     let (give_a, give_b) = (count(0), count(1));
 
@@ -142,8 +142,8 @@ fn needs_view(app: &mut App, ui: &mut egui::Ui) {
     }
     let Some(plan) = &app.plan else { return };
     let cat = &app.cat;
-    let icons = &mut app.icons;
     let names = app.names();
+    let icons = &mut app.icons;
     let (mode, started_only) = (app.need_mode, app.started_only);
     let q = app.search.to_lowercase();
 
