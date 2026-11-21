@@ -5,4 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python scripts/probe.py
+      - name: reachability
+        run: |
+          for u in https://origin.warframe.com/PublicExport/index_en.txt.lzma https://content.warframe.com/PublicExport/index_en.txt.lzma https://www.warframe.com/droptables/data/droptables.json https://api.warframestat.us/pc https://api.warframe.market/v1/items/wisp_prime_systems/statistics https://raw.githubusercontent.com/WFCD/warframe-items/master/data/json/All.json https://raw.githubusercontent.com/WFCD/warframe-drop-data/gh-pages/data/all.slim.json; do
+            echo "$u"; curl -s -o /dev/null -w "%{http_code} plain\n" "$u"; curl -s -o /dev/null -w "%{http_code} ua\n" -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36" "$u"
+          done
