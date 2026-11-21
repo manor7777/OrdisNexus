@@ -1,0 +1,25 @@
+[package]
+name = "inventory-compare"
+version = "0.2.0"
+edition = "2024"
+
+[dependencies]
+aes = "0.8"
+cbc = { version = "0.1", features = ["alloc"] }
+eframe = "0.37.0"
+flate2 = "1.1.11"
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+rfd = "0.18.0"
+self-replace = "1.5.1"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+ureq = "3.5.2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[target."cfg(windows)".build-dependencies]
+winresource = "0.1.34"
