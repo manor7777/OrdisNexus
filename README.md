@@ -4,7 +4,7 @@ A Warframe companion for two friends. It does what AlecaFrame does with your inv
 
 It is one Windows `.exe`. There is no installer, no server and no account. It reads AlecaFrame's own data file from its own folder, and friends exchange small snapshot files through a folder you both already sync.
 
-> Status: built and tested automatically (unit tests run on every push), but **the author could not run it against a live game**. Everything that reads your inventory file is covered by tests with realistic data. The parts that depend on the running game (the log tracking) are best-effort, and the README explains exactly how to adjust them.
+> Status: built and tested automatically (unit tests run on every push), but **the author could not run it against a live game**. Everything that reads your inventory file is covered by tests with realistic data. The parts that depend on the running game (the Overwolf bridge) have not been run live, and the README explains how to check and adjust them. The game-log patterns were taken from a real `EE.log`.
 
 ---
 
@@ -14,7 +14,7 @@ It is one Windows `.exe`. There is no installer, no server and no account. It re
 2. [Features, tab by tab](#features-tab-by-tab)
 3. [How sharing and privacy work](#how-sharing-and-privacy-work)
 4. [Live game tracking](#live-game-tracking-eelog)
-5. [Why there is no Overwolf support (and how to add it)](#why-there-is-no-overwolf-support-and-how-to-add-it)
+5. [Overwolf support](#overwolf-support)
 6. [Voice and the optional language model](#voice-and-the-optional-language-model)
 7. [Auto-update](#auto-update)
 8. [Where data is stored](#where-data-is-stored)
@@ -50,6 +50,7 @@ No shared folder? Use **Friends → Export snapshot to a file** and send the fil
 
 ### 💬 Ordis (assistant)
 Ask in plain English. Answers are computed from your own data, never invented. Examples:
+- **"What am I close to completing?"** Ranks the items you could finish soonest (your goals plus any Prime you already hold a part of) by how few parts you are missing. For each it says exactly what is missing and where to get it: which relics drop each part (marking relics you already own), which resources you are short of with the best drop locations or farming hint, and any credits shortfall. Add "how" or "where" to the question for the full sources list.
 - "What am I missing for Wisp Prime?"
 - "What should I farm tonight?"
 - "Does my friend have Wisp Prime Systems?" / "Can my friend help me?"
@@ -111,8 +112,9 @@ For when you have your friend's raw `lastData.dat`. This is the original Invento
 - Blueprints count as owning a part for "do I have it", but only the blueprint form can be handed over.
 
 ### 📡 Live
+- **Overwolf bridge** status: connected or waiting, inventory updates received and when, whether Warframe is running, and recent bridge messages.
 - Start/stop watching Warframe's `EE.log`, with status.
-- Event list (mission started, mission ended, and any other patterns you add) and a filterable view of the latest raw log lines.
+- Event list (mission name and start, mission end, credits earned, inventory sync, and any other patterns you add) and a filterable view of the latest raw log lines.
 - After a mission, Ordis compares your inventory before and after, once AlecaFrame refreshes the file, and tells you what you gained.
 
 ### ⚙ Settings
@@ -142,43 +144,83 @@ Warframe writes a log file as it runs. Ordis Nexus reads it, read-only, from the
 
 1. Default path: `%LOCALAPPDATA%\Warframe\EE.log`. Override it in **Settings → EE.log path**.
 2. Open **Live → Start watching** (or tick "Start watching on launch").
-3. Start a mission. Events appear in the list. When a mission ends, Ordis waits for AlecaFrame to refresh your inventory and then summarises what you gained.
+3. Start a mission. Events appear in the list. When a mission ends, Ordis waits for your inventory to refresh and then summarises what you gained.
 
-**Important: the log wording is best-effort.** The author could not run the game, and the exact lines Warframe writes can change between updates. If missions are not detected:
+The default patterns were written from a real `EE.log` supplied by a Warframe player, and are covered by tests against lines copied from it:
 
-1. Go to **Live**, play a mission, and read the raw log lines on the right (there is a filter box).
-2. Find a line that appears when a mission starts and one when it ends.
-3. **Settings → Live game → Patterns:** add or edit a pattern. Each has a label, a piece of text the line must contain, and a kind: `mission_start`, `mission_end` or `note`.
-4. Stop and start watching to apply it. If you find better patterns, **Reset to defaults** goes back to the shipped ones.
+| Event | Log line it looks for |
+|---|---|
+| Mission name | `ThemedSquadOverlay.lua: Mission name: …` |
+| Mission started | `Game [Info]: OnStateStarted, mission type=…` |
+| Mission succeeded | `EndOfMatch.lua: Mission Succeeded` |
+| Mission ended (any way) | `GameRulesImpl - changing state from SS_STARTED to SS_ENDING` |
+| Credits earned | `EndOfMatch.lua: NotifyTagMultiple(MISSION_REWARD_CREDITS): …` |
+| Inventory synced / saved | `OnInventoryResults completed`, `CommitInventoryChangesCallback - Success` |
+
+Warframe can change its log wording in an update. If missions stop being detected, open **Live**, play a mission, read the raw lines, and edit the patterns in **Settings → Live game → Patterns** (a label, text the line must contain, and a kind: `mission_start`, `mission_end`, `mission_name`, `credits` or `note`). Restart watching to apply. **Reset to defaults** restores the shipped ones.
 
 ---
 
-## Why there is no Overwolf support (and how to add it)
+## Overwolf support
 
-This was a deliberate decision, not an oversight, so here is the reasoning.
+Overwolf support is included as a small companion app, the **Ordis Nexus Bridge**. It is optional: everything works from AlecaFrame's file alone. With the bridge, Ordis Nexus also gets your **live inventory straight from the game** through Overwolf's Game Events Provider (GEP), so you do not need AlecaFrame's file at all, and you get a live connection status and game-running detection.
 
-**What Overwolf would give you.** Overwolf is a platform that can draw overlays on top of a running game and receive structured "game events" through its Game Events Provider (GEP). In theory that means things like an in-game overlay and reading the relic reward screen.
+> The author could not run Overwolf or the game. The bridge follows the documented GEP flow (set required features, `getInfo()`, then `onInfoUpdates2`) and the receiving side is covered by automated tests, including a real HTTP round trip. The Overwolf side has not been run, so expect to check it once. The troubleshooting list below covers what to look at.
 
-**Why it is not in this build:**
+### How it works
 
-1. **It is a different kind of program.** An Overwolf app is a packaged web app (HTML/JavaScript) that only runs inside Overwolf. It cannot be a plain `.exe`. Supporting it means writing and maintaining a second application, not a feature added to this one.
-2. **It needs Overwolf installed and, to be shared, approved.** Both of you would have to install Overwolf. Publishing through their store involves review. Running an unpublished one requires developer mode. That is heavy for two people.
-3. **It cannot be developed blind.** An overlay or event consumer can only be checked against the live game and a running Overwolf. The author had neither, and shipping untestable code that claims to work is worse than being upfront that it is missing.
-4. **Almost everything that matters here does not need it.** Inventory, goals, relics, foundry, mastery, sharing, trade planning and the assistant all come from the inventory file. Mission start/end comes from the log file. Overwolf only adds *in-game overlays* and, possibly, live reward-screen reading.
-5. **A standalone exe keeps things simple and private.** No extra runtime, no account, no store, no ads platform, nothing running inside the game process.
+```
+Warframe → Overwolf GEP → Ordis Nexus Bridge (Overwolf app)
+                                   │  HTTP POST, this PC only (127.0.0.1:17642)
+                                   ▼
+                           Ordis Nexus (desktop app)
+                      writes %LOCALAPPDATA%\OrdisNexus\overwolf\inventory.json
+                      and loads it exactly like AlecaFrame's file
+```
 
-I also could not confirm which events Overwolf's GEP actually exposes for Warframe, so I did not want to promise features that may not exist. **Check Overwolf's current Warframe documentation before building on it.**
+- The bridge forwards every GEP update. The desktop app keeps the ones that carry `match_info.inventory`. It is the same JSON document AlecaFrame stores, so all tabs, goals, sharing and the assistant work unchanged.
+- It uses a plain local HTTP connection rather than files, so the Overwolf app needs **no file-system permission**. The listener is bound to `127.0.0.1` only and refuses requests from ordinary web pages (it only accepts `overwolf-extension://` origins).
+- Nothing goes over the internet.
 
-**If you (the friend, who has the game) want to add it:**
+### Install the bridge (each of you, once)
 
-1. Install [Overwolf](https://www.overwolf.com/) and read the [developer documentation](https://overwolf.github.io/). Use developer mode and "Load unpacked extension" to run your own app without publishing.
-2. Create a small app that subscribes to whatever Warframe events GEP currently provides, and optionally draws an overlay.
-3. Have that app append one line per event to a text file, or write to a local file the Ordis Nexus log watcher can read. You can point **Settings → EE.log path** at that file, or add a second watcher for it.
-4. In **Settings → Live game → Patterns**, add a pattern matching your event text, with kind `mission_start`, `mission_end` or `note`. Those then show up in **Live** and trigger the mission summary.
+You need Overwolf installed. The bridge is not on the Overwolf store, so it is loaded in developer mode.
 
-This reuses everything already built (pattern matching, event list, before/after inventory summary). The only new piece is the Overwolf app that produces the lines. If you build it and it works, a pull request is welcome.
+**Option A: the packaged file.** Download `OrdisNexusBridge.opk` from [Releases](../../releases) and double-click it. Overwolf offers to install it.
 
-**What you can do today without Overwolf:** use the relic and goal views to decide what to crack, check **World → fissures**, and read the mission summaries from the log.
+**Option B: unpacked folder (works on every Overwolf version).**
+1. Download or clone this repo.
+2. In Overwolf: **Settings → About → Development options → Load unpacked extension**.
+3. Choose the `overwolf/ordis-bridge` folder.
+4. Launch it from the Overwolf dev window the first time. It is set to start with Warframe afterwards.
+
+### Check it works
+
+1. Start Ordis Nexus, then start Warframe (with Overwolf running).
+2. Open **Live → Overwolf bridge**. It shows **connected** once the bridge has contacted the app, "Warframe is running" when the game is detected, and a count of inventory updates received.
+3. In **Settings → Inventory source** leave **Automatic** (uses whichever of the AlecaFrame file and the Overwolf copy is newest), or pick **Overwolf live inventory only**.
+
+### Things to know about the data
+
+From the research notes that came with the project:
+- Warframe does **not** push an updated inventory the instant a mission ends. The Overwolf inventory can stay stale for a while after a mission, and a refresh was observed when leaving the Relay. Ordis shows when the last inventory update arrived so you can tell.
+- Some updates carry no inventory at all. That is normal and shown separately in the Live tab.
+- `getInfo()` is not a way to force a refresh. The bridge polls it gently once a minute only as a backstop.
+- Mission summaries still work from the EE.log events, comparing your inventory before and after, once a newer inventory arrives.
+
+### Troubleshooting the bridge
+
+| Symptom | Check |
+|---|---|
+| Live shows "waiting for the Overwolf app" | The bridge is not running. Open it from the Overwolf dev window. Check that Overwolf is running and Warframe is a supported game. |
+| "Cannot listen on 127.0.0.1:17642" | Another copy of Ordis Nexus is already running, or another program uses that port. |
+| Connected, but zero inventory updates | Overwolf may not have given the app Warframe events. In the bridge's background-page console (Overwolf dev window → Inspect) look for `[ordis-bridge]` lines. Leaving the Relay or Orbiter often triggers the first inventory. |
+| "could not set required features" | The game may not have finished loading. The bridge retries for about a minute. If it never succeeds, the feature names in `background.js` (`match_info`, `game_info`) may need adjusting to Overwolf's current Warframe documentation. |
+| The bridge never detects the game | The manifest and `background.js` use Overwolf's id for Warframe (8954) and also match the window title "Warframe". If Overwolf lists a different id for Warframe, change it in both. |
+
+### Overlays
+
+The bridge currently reads data only. It does not draw anything inside the game. An overlay would be a second window added to the same Overwolf app (see Overwolf's developer docs for in-game windows) that shows data from Ordis Nexus's local endpoint. The two apps already speak over `127.0.0.1:17642`, so that is a natural extension.
 
 ---
 
