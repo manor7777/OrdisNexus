@@ -156,6 +156,15 @@ def strip_store(u):
     return u.replace("/StoreItems", "", 1)
 
 
+def _chance(v):
+    import math
+    try:
+        f = float(v or 0)
+    except (TypeError, ValueError):
+        return 0
+    return round(f, 2) if math.isfinite(f) else 0
+
+
 def build_v2(get, cat, online=True):
     """Adds recipes / items / relics / res / slugs / drops to `cat` (best effort per section)."""
     names = cat["names"]
@@ -248,7 +257,7 @@ def build_v2(get, cat, online=True):
                 item = d.get("item")
                 if not item or "Relic" in place:
                     continue
-                drops.setdefault(item, []).append([place, (d.get("rarity") or "")[:1], round(float(d.get("chance") or 0), 2)])
+                drops.setdefault(item, []).append([place, (d.get("rarity") or "")[:1], _chance(d.get("chance"))])
         except (URLError, ValueError, OSError) as e:
             print("drops failed:", e)
     cat["drops"] = drops
@@ -273,7 +282,7 @@ def main():
         for k in ("slugs", "drops"):
             if not cat.get(k) and old.get(k):
                 cat[k] = old[k]
-    data = json.dumps(cat, separators=(",", ":"), ensure_ascii=False).encode()
+    data = json.dumps(cat, separators=(",", ":"), ensure_ascii=False, allow_nan=False).encode()
     OUT.write_bytes(gzip.compress(data, 9, mtime=0))
     print(f"{len(cat['recipes'])} recipes, {len(cat['items'])} items, {len(cat['relics'])} relics, "
           f"{len(cat['res'])} resource hints, {len(cat['slugs'])} market slugs, {len(cat['drops'])} dropped items")
