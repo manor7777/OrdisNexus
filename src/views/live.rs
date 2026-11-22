@@ -3,8 +3,67 @@ use crate::theme::*;
 use crate::util::{default_ee_log, now_ms};
 use eframe::egui::{self, RichText};
 
+fn ago(ms: i64) -> String {
+    if ms <= 0 {
+        "never".into()
+    } else {
+        format!("{} ago", crate::util::fmt_duration((now_ms() - ms).max(0)))
+    }
+}
+
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let mut toggle = false;
+    card(ui, |ui| {
+        ui.set_width(ui.available_width());
+        ui.horizontal(|ui| {
+            heading(ui, "Overwolf bridge");
+            match &app.gep {
+                None => chip(ui, "off (Settings)", SUBTLE),
+                Some(g) => {
+                    let st = g.lock().unwrap().clone();
+                    if let Some(e) = &st.error {
+                        chip(ui, "problem", BAD);
+                        ui.colored_label(BAD, e);
+                    } else if st.last_contact_ms > 0 && now_ms() - st.last_contact_ms < 45_000 {
+                        chip(ui, "connected", GOOD);
+                    } else if st.listening {
+                        chip(ui, "waiting for the Overwolf app", WARN);
+                    }
+                }
+            }
+        });
+        match &app.gep {
+            Some(g) => {
+                let st = g.lock().unwrap().clone();
+                subtle(
+                    ui,
+                    &format!(
+                        "Inventory updates received: {} (last {}). Other updates: {} (last {}). Warframe {}.",
+                        st.inventory_updates,
+                        ago(st.last_inventory_ms),
+                        st.updates.saturating_sub(st.inventory_updates),
+                        ago(st.last_update_ms),
+                        if st.game_running { "is running" } else { "not detected" }
+                    ),
+                );
+                if let Some(u) = &st.username {
+                    subtle(ui, &format!("In-game name reported by Overwolf: {u}"));
+                }
+                subtle(ui, "Warframe only sends a fresh inventory occasionally (often after leaving the Relay or Orbiter), so right after a mission it can be a little behind.");
+                if !st.recent.is_empty() {
+                    ui.collapsing("Recent bridge messages", |ui| {
+                        for l in st.recent.iter().rev().take(20) {
+                            ui.label(RichText::new(l).monospace().size(11.0).color(SUBTLE));
+                        }
+                    });
+                }
+            }
+            None => {
+                subtle(ui, "Turn on the Overwolf bridge in Settings to receive your live inventory from the Overwolf app.");
+            }
+        }
+    });
+    ui.add_space(6.0);
     card(ui, |ui| {
         ui.set_width(ui.available_width());
         ui.horizontal(|ui| {

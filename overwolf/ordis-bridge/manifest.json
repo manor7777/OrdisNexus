@@ -1,0 +1,38 @@
+{
+  "manifest_version": 1,
+  "type": "WebApp",
+  "meta": {
+    "name": "Ordis Nexus Bridge",
+    "version": "0.1.0",
+    "minimum-overwolf-version": "0.160.0",
+    "author": "Ordis Nexus",
+    "icon": "icon.png",
+    "icon_gray": "icon_gray.png",
+    "description": "Passes Warframe's live inventory and game events to the Ordis Nexus desktop app on this PC. Nothing is sent over the internet."
+  },
+  "permissions": ["GameInfo"],
+  "data": {
+    "start_window": "background",
+    "windows": {
+      "background": {
+        "file": "background.html",
+        "is_background_page": true
+      }
+    },
+    "game_targeting": {
+      "type": "dedicated",
+      "game_ids": [8954]
+    },
+    "game_events": [8954],
+    "launch_events": [
+      {
+        "event": "GameLaunch",
+        "event_data": { "game_ids": [8954] },
+        "start_minimized": true
+      }
+    ],
+    "developer": {
+      "enable_auto_launch": true
+    }
+  }
+}

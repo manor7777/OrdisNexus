@@ -43,6 +43,26 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             path_row(ui, "Shared sync folder (OneDrive/Dropbox/Syncthing)", &mut app.settings.sync_dir, true, &mut changed);
             subtle(ui, "Both of you point this at the same synced folder. Each writes a small snapshot file; no server is involved.");
             changed |= ui.checkbox(&mut app.settings.auto_reload, "Reload inventories automatically when the file changes").changed();
+            ui.horizontal(|ui| {
+                ui.label("Inventory source");
+                egui::ComboBox::from_id_salt("inv_source")
+                    .selected_text(match app.settings.inventory_source.as_str() {
+                        "alecaframe" => "AlecaFrame file only",
+                        "overwolf" => "Overwolf live inventory only",
+                        _ => "Automatic (whichever is newest)",
+                    })
+                    .show_ui(ui, |ui| {
+                        for (v, t) in [("auto", "Automatic (whichever is newest)"), ("alecaframe", "AlecaFrame file only"), ("overwolf", "Overwolf live inventory only")] {
+                            changed |= ui.selectable_value(&mut app.settings.inventory_source, v.to_string(), t).changed();
+                        }
+                    });
+            });
+            ui.horizontal(|ui| {
+                if ui.checkbox(&mut app.settings.overwolf_bridge, "Listen for the Overwolf bridge (restart to apply)").changed() {
+                    changed = true;
+                }
+                subtle(ui, &format!("local port {}", crate::gep::PORT));
+            });
         });
         ui.add_space(6.0);
         card(ui, |ui| {
@@ -70,7 +90,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                     changed |= ui.add(egui::TextEdit::singleline(&mut p.label).desired_width(140.0)).changed();
                     changed |= ui.add(egui::TextEdit::singleline(&mut p.contains).desired_width(360.0)).changed();
                     egui::ComboBox::from_id_salt(("kind", i)).selected_text(p.kind.clone()).show_ui(ui, |ui| {
-                        for k in ["mission_start", "mission_end", "note"] {
+                        for k in ["mission_start", "mission_end", "mission_name", "credits", "note"] {
                             changed |= ui.selectable_value(&mut p.kind, k.to_string(), k).changed();
                         }
                     });

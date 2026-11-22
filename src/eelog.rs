@@ -42,6 +42,20 @@ pub fn classify(line: &str, patterns: &[EePattern]) -> Option<(String, String)> 
         .map(|p| (p.label.clone(), p.kind.clone()))
 }
 
+/// Text after `marker` in `line`, trimmed.
+pub fn tail_after(line: &str, marker: &str) -> Option<String> {
+    let i = line.find(marker)? + marker.len();
+    let t = line[i..].trim();
+    (!t.is_empty()).then(|| t.to_string())
+}
+
+/// The integer that follows `marker`.
+pub fn number_after(line: &str, marker: &str) -> Option<u64> {
+    let t = tail_after(line, marker)?;
+    let digits: String = t.chars().take_while(|c| c.is_ascii_digit()).collect();
+    digits.parse().ok()
+}
+
 const KEEP_LINES: usize = 400;
 
 pub fn start(path: PathBuf, patterns: Vec<EePattern>, ctx: &egui::Context) -> EeWatcher {
@@ -113,14 +127,23 @@ mod tests {
     use crate::settings::default_patterns;
 
     #[test]
-    fn classifies_known_lines() {
+    fn classifies_real_log_lines() {
         let p = default_patterns();
-        let (l, k) = classify("123.4 Game [Info]: GameRulesImpl - changing state from SS_WAITING_FOR_PLAYERS to SS_STARTED", &p).unwrap();
-        assert_eq!((l.as_str(), k.as_str()), ("Mission started", "mission_start"));
-        let (_, k) = classify("Script [Info]: EndOfMatch.lua: stuff", &p).unwrap();
-        assert_eq!(k, "mission_end");
-        assert!(classify("Sys [Info]: nothing interesting", &p).is_none());
+        let k = |l: &str| classify(l, &p).map(|(_, k)| k);
+        assert_eq!(k("3701:86.803 Game [Info]: OnStateStarted, mission type=MT_SURVIVAL").as_deref(), Some("mission_start"));
+        assert_eq!(k("445.717 Script [Info]: EndOfMatch.lua: Mission Succeeded").as_deref(), Some("mission_end"));
+        assert_eq!(k("2204.861 Net [Info]: GameRulesImpl - changing state from SS_STARTED to SS_ENDING").as_deref(), Some("mission_end"));
+        assert_eq!(k("81.006 Script [Info]: ThemedSquadOverlay.lua: Mission name: Cameria (Jupiter)").as_deref(), Some("mission_name"));
+        assert_eq!(k("445.995 Script [Info]: EndOfMatch.lua: NotifyTagMultiple(MISSION_REWARD_CREDITS): 16900").as_deref(), Some("credits"));
+        assert!(k("445.738 Sys [Info]: nothing interesting").is_none());
         assert!(classify("anything", &[EePattern { label: "x".into(), contains: String::new(), kind: "note".into() }]).is_none());
+    }
+
+    #[test]
+    fn extracts_values() {
+        assert_eq!(tail_after("x: Mission name: Cameria (Jupiter)", "Mission name: ").as_deref(), Some("Cameria (Jupiter)"));
+        assert_eq!(number_after("NotifyTagMultiple(MISSION_REWARD_CREDITS): 16900", "): "), Some(16900));
+        assert_eq!(number_after("nothing", "): "), None);
     }
 
     #[test]
@@ -134,7 +157,7 @@ mod tests {
         let w = start(path.clone(), default_patterns(), &ctx);
         std::thread::sleep(Duration::from_millis(900));
         let mut f = std::fs::OpenOptions::new().append(true).open(&path).unwrap();
-        writeln!(f, "Game [Info]: GameRulesImpl - changing state from SS_STARTED to SS_ENDING").unwrap();
+        writeln!(f, "Net [Info]: GameRulesImpl - changing state from SS_STARTED to SS_ENDING").unwrap();
         let ev = w.rx.recv_timeout(Duration::from_secs(5)).expect("event arrives");
         assert_eq!(ev.kind, "mission_end");
         assert!(!w.lines.lock().unwrap().iter().any(|l| l == "old line"));

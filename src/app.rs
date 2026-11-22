@@ -218,8 +218,10 @@ pub struct App {
 
     // live game
     pub ee: Option<EeWatcher>,
+    pub gep: Option<crate::gep::Shared>,
     pub events: Vec<LiveEvent>,
     pub mission_active: bool,
+    pub mission_name: Option<String>,
     pub pre_mission: Option<Inventory>,
     pub pending_summary: bool,
     pub log_filter: String,
@@ -294,8 +296,10 @@ impl App {
             llm_tx,
             llm_rx,
             ee: None,
+            gep: None,
             events: vec![],
             mission_active: false,
+            mission_name: None,
             pre_mission: None,
             pending_summary: false,
             log_filter: String::new(),
@@ -310,7 +314,10 @@ impl App {
             settings,
         };
         // your own inventory: the configured file, else AlecaFrame's own
-        let own = app.settings.own_path.clone().map(PathBuf::from).or_else(alecaframe_data_file).filter(|p| p.exists());
+        if app.settings.overwolf_bridge {
+            app.gep = Some(crate::gep::start(ctx.clone()));
+        }
+        let own = app.pick_inventory_path();
         if let Some(p) = own {
             app.me.load(p);
         }
@@ -324,6 +331,28 @@ impl App {
         }
         app.check_updates(ctx);
         app
+    }
+
+    /// Where your inventory comes from: AlecaFrame's file, the live Overwolf
+    /// copy, or (auto) whichever was written most recently.
+    pub fn pick_inventory_path(&self) -> Option<PathBuf> {
+        let aleca = self.settings.own_path.clone().map(PathBuf::from).or_else(alecaframe_data_file).filter(|p| p.exists());
+        let ow = Some(crate::gep::inventory_path()).filter(|p| p.exists());
+        let mtime = |p: &PathBuf| std::fs::metadata(p).and_then(|m| m.modified()).ok();
+        match self.settings.inventory_source.as_str() {
+            "alecaframe" => aleca,
+            "overwolf" => ow,
+            _ => match (aleca, ow) {
+                (Some(a), Some(o)) => {
+                    if mtime(&o) > mtime(&a) {
+                        Some(o)
+                    } else {
+                        Some(a)
+                    }
+                }
+                (a, o) => a.or(o),
+            },
+        }
     }
 
     pub fn check_updates(&self, ctx: &egui::Context) {
@@ -407,11 +436,23 @@ impl App {
         }
         for e in evs {
             match e.kind.as_str() {
+                "mission_name" => {
+                    if let Some(n) = crate::eelog::tail_after(&e.line, "Mission name: ") {
+                        self.mission_name = Some(n);
+                    }
+                }
+                "credits" => {
+                    if let Some(n) = crate::eelog::number_after(&e.line, "): ") {
+                        self.events.push(LiveEvent { ts: e.ts_ms, text: format!("💰 +{} credits from the mission", fmt_n(n)) });
+                    }
+                }
                 "mission_start" => {
                     if !self.mission_active {
                         self.mission_active = true;
                         self.pre_mission = self.me.acct.as_ref().map(|a| a.inv.clone());
-                        self.events.push(LiveEvent { ts: e.ts_ms, text: "🚀 Mission started".into() });
+                        let name = self.mission_name.clone().unwrap_or_default();
+                        let text = if name.is_empty() { "🚀 Mission started".to_string() } else { format!("🚀 Mission started: {name}") };
+                        self.events.push(LiveEvent { ts: e.ts_ms, text });
                         if self.settings.notify.events {
                             self.notify("Mission started. Ordis will summarise the results.");
                         }
@@ -692,8 +733,17 @@ impl App {
         let now = Instant::now();
         if now.duration_since(self.last_poll) > Duration::from_secs(3) {
             self.last_poll = now;
-            if self.settings.auto_reload && self.me.changed_on_disk() {
-                self.reload_me();
+            if self.settings.auto_reload {
+                match self.pick_inventory_path() {
+                    Some(p) if Some(&p) != self.me.path.as_ref() => {
+                        let before = self.goal_done_set();
+                        let old_inv = self.me.acct.as_ref().map(|a| a.inv.clone());
+                        self.me.load(p);
+                        self.after_reload(before, old_inv);
+                    }
+                    _ if self.me.changed_on_disk() => self.reload_me(),
+                    _ => {}
+                }
             }
             if self.friend_file.changed_on_disk() {
                 if let Some(p) = self.friend_file.path.clone() {

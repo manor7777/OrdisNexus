@@ -34,6 +34,8 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           Copy-Item target/release/ordis-nexus.exe dist/OrdisNexus.exe
           Compress-Archive -Path dist/OrdisNexus.exe -DestinationPath dist/OrdisNexus-windows-x64.zip -Force
+          Compress-Archive -Path overwolf/ordis-bridge/* -DestinationPath dist/OrdisNexusBridge.zip -Force
+          Move-Item dist/OrdisNexusBridge.zip dist/OrdisNexusBridge.opk -Force
       - uses: actions/upload-artifact@v4
         with:
           name: OrdisNexus-windows-x64
@@ -49,3 +51,4 @@ jobs:
           files: |
             dist/OrdisNexus.exe
             dist/OrdisNexus-windows-x64.zip
+            dist/OrdisNexusBridge.opk

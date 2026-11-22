@@ -29,7 +29,7 @@ fn has(q: &str, words: &[&str]) -> bool {
     words.iter().any(|w| q.contains(w))
 }
 
-pub const HELP: &str = "Ordis can answer things like:\n• What am I missing for Wisp Prime?\n• What should I farm tonight?\n• Does my friend have Wisp Prime Systems?\n• Can my friend help me?\n• What can I build right now?\n• Which relics should I crack?\n• What are my goals?\n• How much Ferrite do I have?\n• Any good fissures / invasions? Where is Baro?\n• What's my mastery progress? What's in the Foundry?";
+pub const HELP: &str = "Ordis can answer things like:\n• What am I close to completing?\n• What am I missing for Wisp Prime?\n• What should I farm tonight?\n• Does my friend have Wisp Prime Systems?\n• Can my friend help me?\n• What can I build right now?\n• Which relics should I crack?\n• What are my goals?\n• How much Ferrite do I have?\n• Any good fissures / invasions? Where is Baro?\n• What's my mastery progress? What's in the Foundry?";
 
 /// The grounded answer. Always safe to show as-is.
 pub fn answer(c: &Ctx, question: &str) -> String {
@@ -89,6 +89,19 @@ pub fn answer(c: &Ctx, question: &str) -> String {
         } else {
             format!("You can build right now: {}.", list.iter().map(|u| c.cat.display(u)).collect::<Vec<_>>().join(", "))
         };
+    }
+
+    // closest things to finish
+    if has(&q, &["close to", "closest", "nearly", "almost", "next to finish", "what can i finish", "what am i close"]) {
+        let list = crate::close::close_to_completing(c.cat, me, &c.settings.goals, 4);
+        if list.is_empty() {
+            return "Ordis cannot see anything you are partway through yet. Add a goal in the Goals tab, or get a Prime part and ask again.".into();
+        }
+        let detailed = has(&q, &["how", "where", "detail", "exactly", "get"]);
+        let lines: Vec<String> = list.iter().enumerate().map(|(i, x)| crate::close::describe(x, detailed || i == 0)).collect();
+        let tail = if detailed { "" } else { "
+Ask 'how do I get them' for the full list of sources." };
+        return format!("You are closest to finishing:\n{}{}", lines.join("\n"), tail);
     }
 
     // what to do

@@ -72,7 +72,7 @@ impl Default for Rules {
 pub struct EePattern {
     pub label: String,
     pub contains: String,
-    /// One of: `mission_start`, `mission_end`, `note`.
+    /// One of: `mission_start`, `mission_end`, `mission_name`, `credits`, `note`.
     pub kind: String,
 }
 
@@ -134,6 +134,9 @@ pub struct Settings {
     pub voice: bool,
     pub notify: Notify,
     pub use_market: bool,
+    /// `auto` (newest of the two), `alecaframe` or `overwolf`.
+    pub inventory_source: String,
+    pub overwolf_bridge: bool,
 }
 
 impl Default for Settings {
@@ -159,6 +162,8 @@ impl Default for Settings {
             voice: false,
             notify: Notify::default(),
             use_market: true,
+            inventory_source: "auto".into(),
+            overwolf_bridge: true,
         }
     }
 }
@@ -166,12 +171,15 @@ impl Default for Settings {
 /// Best-effort EE.log patterns. Edit them in Settings if a Warframe update changes the wording.
 pub fn default_patterns() -> Vec<EePattern> {
     let p = |label: &str, contains: &str, kind: &str| EePattern { label: label.into(), contains: contains.into(), kind: kind.into() };
+    // Taken from a real EE.log. The game can change these, so they stay editable.
     vec![
-        p("Mission started", "GameRulesImpl - changing state from SS_WAITING_FOR_PLAYERS to SS_STARTED", "mission_start"),
-        p("Mission started", "changing state from SS_STARTING to SS_STARTED", "mission_start"),
-        p("Mission ended", "changing state from SS_STARTED to SS_ENDING", "mission_end"),
-        p("Mission ended", "EndOfMatch.lua", "mission_end"),
-        p("Loading into a mission", "ThemedSquadOverlay.lua: Host loading", "note"),
+        p("Mission name", "ThemedSquadOverlay.lua: Mission name: ", "mission_name"),
+        p("Mission started", "Game [Info]: OnStateStarted, mission type=", "mission_start"),
+        p("Mission succeeded", "EndOfMatch.lua: Mission Succeeded", "mission_end"),
+        p("Mission ended", "GameRulesImpl - changing state from SS_STARTED to SS_ENDING", "mission_end"),
+        p("Credits earned", "NotifyTagMultiple(MISSION_REWARD_CREDITS): ", "credits"),
+        p("Inventory synced", "OnInventoryResults completed", "note"),
+        p("Inventory saved", "CommitInventoryChangesCallback - Success", "note"),
     ]
 }
 
