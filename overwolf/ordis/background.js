@@ -4,6 +4,11 @@ import { parseAccount } from './core/account.js';
 import { extractInventory } from './core/gep.js';
 import { loadCatalogFromUrl } from './core/catalog.js';
 
+const startupErrors = [];
+window.addEventListener('error', (e) => startupErrors.push(String(e.message || e)));
+window.addEventListener('unhandledrejection', (e) => startupErrors.push(String((e.reason && e.reason.message) || e.reason)));
+const safe = (what, fn) => { try { fn(); } catch (e) { startupErrors.push(`${what}: ${e && e.message ? e.message : e}`); } };
+
 const GAME_ID = 8954; // Warframe (verify in Overwolf's game list if nothing arrives)
 const FEATURES = ['match_info', 'game_info'];
 const KEY = { inv: 'ordis.inventory', meta: 'ordis.meta', goals: 'ordis.goals', settings: 'ordis.settings' };
@@ -13,13 +18,14 @@ const store = {
 };
 
 const state = {
-  version: '0.4.0',
+  version: '0.4.1',
   acct: null,
   updatedAt: 0,
   goals: store.get(KEY.goals, []),
   settings: store.get(KEY.settings, { name: '' }),
   status: { gameRunning: false, featuresSet: false, lastError: '', messages: 0, withInventory: 0, partial: 0, lastPartialKeys: [], lastKeys: [], recent: [] },
   catalogError: '',
+  startupErrors,
 };
 const listeners = new Set();
 const notify = () => listeners.forEach((f) => { try { f(); } catch { /* a closed window */ } });
@@ -86,16 +92,16 @@ function onGame(info) {
   }
 }
 
-overwolf.games.events.onInfoUpdates2.addListener((m) => handle('info', m));
-overwolf.games.events.onNewEvents.addListener((m) => log('event', m) || notify());
-overwolf.games.onGameInfoUpdated.addListener((e) => onGame(e && e.gameInfo));
-overwolf.games.getRunningGameInfo((info) => onGame(info));
+safe('onInfoUpdates2', () => overwolf.games.events.onInfoUpdates2.addListener((m) => handle('info', m)));
+safe('onNewEvents', () => overwolf.games.events.onNewEvents.addListener((m) => { log('event', m); notify(); }));
+safe('onGameInfoUpdated', () => overwolf.games.onGameInfoUpdated.addListener((e) => onGame(e && e.gameInfo)));
+safe('getRunningGameInfo', () => overwolf.games.getRunningGameInfo((info) => onGame(info)));
 setInterval(() => { if (state.status.gameRunning) overwolf.games.events.getInfo((i) => handle('getInfo', i)); }, 60000);
 
 // window handling
 function showMain() { overwolf.windows.obtainDeclaredWindow('main', (r) => { if (r.success) overwolf.windows.restore(r.window.id, () => {}); }); }
-overwolf.extensions.onAppLaunchTriggered.addListener((e) => { if (!e || e.origin !== 'gamelaunchevent') showMain(); });
-overwolf.settings.hotkeys.onPressed.addListener((e) => {
+safe('onAppLaunchTriggered', () => overwolf.extensions.onAppLaunchTriggered.addListener((e) => { if (!e || e.origin !== 'gamelaunchevent') showMain(); }));
+safe('hotkeys', () => overwolf.settings.hotkeys.onPressed.addListener((e) => {
   if (e.name !== 'toggle_main') return;
   overwolf.windows.obtainDeclaredWindow('main', (r) => {
     if (!r.success) return;
@@ -104,7 +110,7 @@ overwolf.settings.hotkeys.onPressed.addListener((e) => {
       if (st === 'normal' || st === 'maximized') overwolf.windows.minimize(r.window.id, () => {}); else overwolf.windows.restore(r.window.id, () => {});
     });
   });
-});
+}));
 
 // API for the main window (overwolf.windows.getMainWindow() returns this window)
 window.ordis = {
@@ -115,4 +121,7 @@ window.ordis = {
   forgetInventory() { state.acct = null; state.updatedAt = 0; try { localStorage.removeItem(KEY.inv); } catch { /* ignore */ } notify(); },
   refresh() { overwolf.games.events.getInfo((i) => handle('getInfo', i)); },
 };
-if (state.status.gameRunning === false) setFeatures();
+safe('setFeatures', () => setFeatures());
+// The launch event can fire before this script runs, so open the window ourselves
+// unless Overwolf started us silently because the game launched.
+if (!/gamelaunchevent/.test(window.location.href)) setTimeout(showMain, 300);

@@ -24,6 +24,14 @@ const card = (l, v) => h('div', { class: 'card' }, h('div', { class: 'v' }, v), 
 const bar = (f) => h('div', { class: 'bar' }, h('i', { style: `width:${Math.round(Math.max(0, Math.min(1, f)) * 100)}%` }));
 const table = (head, rows) => h('table', {}, h('tr', {}, head.map((x) => h('th', {}, x))), rows.map((r) => h('tr', {}, r.map((c) => h('td', {}, c)))));
 
+function errorBanner() {
+  const errs = (bg && bg.state.startupErrors) || [];
+  const old = document.getElementById('errs'); if (old) old.remove();
+  if (!errs.length) return;
+  const d = h('div', { id: 'errs', class: 'card bad' }, h('b', {}, 'Startup problems (send these to the author):'), h('pre', {}, errs.slice(0, 8).join('\n')));
+  $('#view').prepend(d);
+}
+
 function pill() {
   const st = bg.state;
   const p = $('#pill');
@@ -141,14 +149,16 @@ function draw() {
   const main = $('#view');
   const keep = document.activeElement && document.activeElement.id === 'q';
   const ready = cat && (bg.state.acct || tab === 'Settings' || tab === 'Ordis' || tab === 'Goals');
-  if (!ready || (tab !== 'Settings' && tab !== 'Ordis' && !bg.state.acct)) { main.replaceChildren(tab === 'Settings' ? views.Settings() : needData(tab)); return; }
+  if (!ready || (tab !== 'Settings' && tab !== 'Ordis' && !bg.state.acct)) { main.replaceChildren(tab === 'Settings' ? views.Settings() : needData(tab)); errorBanner(); return; }
   if (!bg.state.acct && (tab === 'Goals')) { main.replaceChildren(needData(tab)); return; }
   main.replaceChildren(views[tab]());
+  errorBanner();
   if (keep && $('#q')) $('#q').focus();
 }
 
 overwolf.windows.getMainWindow((w) => {
-  bg = w.ordis;
+  bg = w && w.ordis;
+  if (!bg) { document.getElementById('view').textContent = 'The Ordis Nexus background window is not running (it failed to start). Open the Overwolf developer tools for the background window and send the error to the author.'; return; }
   bg.subscribe(() => { if (document.activeElement && ['INPUT', 'SELECT'].includes(document.activeElement.tagName) && tab !== 'Settings') { pill(); return; } draw(); });
   bg.catalog.then((c) => { cat = c; draw(); }, () => draw());
   draw();
