@@ -131,7 +131,7 @@ const views = {
     return h('div', {}, h('h2', {}, 'Settings and diagnostics'),
       h('div', { class: 'row' }, name, h('button', { class: 'b', onclick: () => bg.saveSettings({ ...st.settings, name: name.value }) }, 'Save name')),
       h('h3', {}, 'Game connection'),
-      table(['', ''], [['Ordis Nexus version', st.version], ['Warframe running', s.gameRunning ? 'yes' : 'no'], ['GEP features registered', s.featuresSet ? 'yes' : 'no'], ['Last error', s.lastError || '—'],
+      table(['', ''], [['Ordis Nexus version', st.version], ['Warframe running', s.gameRunning ? 'yes' : 'no'], ['Game Overwolf sees', s.game ? `${s.game.title || '?'} (id ${s.game.id}, class ${s.game.classId}, running ${s.game.isRunning})` : 'none'], ['GEP features registered', s.featuresSet ? 'yes' : 'no'], ['Last error', s.lastError || '—'],
         ['Messages received', s.messages], ['With inventory', s.withInventory], ['Partial (ignored)', s.partial], ['Last partial keys', s.lastPartialKeys.join(', ') || '—'],
         ['Inventory stored', st.acct ? `${fmtN(st.acct.inv.size)} items, ${ago(st.updatedAt)}` : 'none'], ['Catalog', cat ? `${cat.primes.length} primes loaded` : st.catalogError || 'loading']]),
       h('div', { class: 'row' }, h('button', { class: 'b alt', onclick: () => bg.refresh() }, 'Ask the game for info now'),

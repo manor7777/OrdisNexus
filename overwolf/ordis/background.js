@@ -18,12 +18,12 @@ const store = {
 };
 
 const state = {
-  version: '0.4.2',
+  version: '0.4.3',
   acct: null,
   updatedAt: 0,
   goals: store.get(KEY.goals, []),
   settings: store.get(KEY.settings, { name: '' }),
-  status: { gameRunning: false, featuresSet: false, lastError: '', messages: 0, withInventory: 0, partial: 0, lastPartialKeys: [], lastKeys: [], recent: [] },
+  status: { gameRunning: false, featuresSet: false, game: null, lastError: '', messages: 0, withInventory: 0, partial: 0, lastPartialKeys: [], lastKeys: [], recent: [] },
   catalogError: '',
   startupErrors,
 };
@@ -77,13 +77,14 @@ function setFeatures(attempt = 0) {
     } else {
       state.status.featuresSet = false;
       state.status.lastError = `setRequiredFeatures: ${(res && (res.error || res.reason)) || 'failed'}`;
-      if (attempt < 30) setTimeout(() => setFeatures(attempt + 1), 2000);
+      setTimeout(() => setFeatures(attempt + 1), 5000);
     }
     notify();
   });
 }
 
 function onGame(info) {
+  if (info) state.status.game = { id: info.id, classId: info.classId, title: info.title, isRunning: !!info.isRunning };
   const running = !!(info && info.isRunning && (Math.floor((info.id || 0) / 10) === GAME_ID || /warframe/i.test(info.title || '')));
   if (running !== state.status.gameRunning) {
     state.status.gameRunning = running;
@@ -96,6 +97,7 @@ safe('onInfoUpdates2', () => overwolf.games.events.onInfoUpdates2.addListener((m
 safe('onNewEvents', () => overwolf.games.events.onNewEvents.addListener((m) => { log('event', m); notify(); }));
 safe('onGameInfoUpdated', () => overwolf.games.onGameInfoUpdated.addListener((e) => onGame(e && e.gameInfo)));
 safe('getRunningGameInfo', () => overwolf.games.getRunningGameInfo((info) => onGame(info)));
+setInterval(() => safe('poll', () => overwolf.games.getRunningGameInfo((i) => { onGame(i); notify(); })), 5000);
 setInterval(() => { if (state.status.gameRunning) overwolf.games.events.getInfo((i) => handle('getInfo', i)); }, 60000);
 
 // window handling
