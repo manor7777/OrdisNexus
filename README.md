@@ -29,8 +29,8 @@ A Warframe companion for two friends. It does what AlecaFrame does with your inv
 
 Needs [Overwolf](https://www.overwolf.com) and Warframe. No AlecaFrame.
 
-1. **When the app is ready:** install it from the Overwolf store. Until then, download `OrdisNexus-Overwolf.opk` from [Releases](../../releases) and double-click it (Overwolf may ask you to allow an unlisted app).
-2. **For testing before then (developer mode):** in Overwolf choose **Settings → About → Development options → Load unpacked extension** and pick the `overwolf/ordis` folder.
+1. **When the app is published:** install it from the Overwolf store. Overwolf refuses unverified `.opk` files, so the `.opk` on Releases will not install until the app is approved.
+2. **For testing now (developer mode):** download `OrdisNexus-Overwolf-unpacked.zip` from [Releases](../../releases) and extract it. In Overwolf choose **Settings → About → Development options → Load unpacked extension** and pick the extracted folder. (Or use the `overwolf/ordis` folder from the repo.)
 3. Start Warframe. Ordis registers for game events and your inventory arrives on its own. It refreshes when the game refreshes it (see [data notes](#things-to-know-about-the-data)).
 4. Share with a friend using a snapshot file or code (see [sharing](#how-sharing-and-privacy-work)). Choose what they may see first.
 

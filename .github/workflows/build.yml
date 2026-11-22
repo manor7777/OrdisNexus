@@ -47,7 +47,8 @@ jobs:
           Push-Location overwolf/ordis
           Compress-Archive -Path manifest.json,background.html,background.js,icon.png,icon_gray.png,core,data,ui -DestinationPath ../../dist/OrdisNexus-Overwolf.zip -Force
           Pop-Location
-          Move-Item dist/OrdisNexus-Overwolf.zip dist/OrdisNexus-Overwolf.opk -Force
+          Copy-Item dist/OrdisNexus-Overwolf.zip dist/OrdisNexus-Overwolf.opk -Force
+          Move-Item dist/OrdisNexus-Overwolf.zip dist/OrdisNexus-Overwolf-unpacked.zip -Force
       - uses: actions/upload-artifact@v4
         with:
           name: OrdisNexus-windows-x64
@@ -66,3 +67,4 @@ jobs:
             dist/OrdisNexus-windows-x64.zip
             dist/OrdisNexusBridge.opk
             dist/OrdisNexus-Overwolf.opk
+            dist/OrdisNexus-Overwolf-unpacked.zip
