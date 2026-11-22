@@ -4,7 +4,7 @@ A Warframe companion for two friends. It does what AlecaFrame does with your inv
 
 **Ordis Nexus is an Overwolf app.** It is meant to be installed through Overwolf and to run only inside it, with no separate program and no AlecaFrame. Your inventory comes straight from the game through Overwolf's Game Events Provider (GEP), the same source AlecaFrame itself uses. Friends exchange small snapshot files or codes, with no account and no server.
 
-> **Where things stand.** The Overwolf app lives in [`overwolf/ordis/`](overwolf/ordis) and is being built now. Its engine (inventory parsing, build planning, goals, "what am I close to completing", relics, mastery) is written in plain JavaScript and tested with `node --test`. The window UI, install package and friend sharing are still to come. Until it is ready, the repository also contains the earlier **desktop build** (`OrdisNexus.exe` plus a small Overwolf "bridge"). That build is a stop-gap for testing, not the intended product, and it is described in [the legacy section](#legacy-desktop-build-and-bridge) at the bottom. Nothing here has been run against a live game by the author, so expect the first real-game check to need small fixes.
+> **Where things stand.** The Overwolf app lives in [`overwolf/ordis/`](overwolf/ordis) and is being built now. Its engine (inventory parsing, build planning, goals, "what am I close to completing", relics, mastery) is written in plain JavaScript and tested with `node --test`. The manifest, background script and window (Overview, Ordis chat, Goals, Inventory, Relics, Mastery, Foundry, Settings) are written, but have not run inside Overwolf yet. Friend sharing and comparing are still to come. Until it is ready, the repository also contains the earlier **desktop build** (`OrdisNexus.exe` plus a small Overwolf "bridge"). That build is a stop-gap for testing, not the intended product, and it is described in [the legacy section](#legacy-desktop-build-and-bridge) at the bottom. Nothing here has been run against a live game by the author, so expect the first real-game check to need small fixes.
 
 ---
 
@@ -29,7 +29,7 @@ A Warframe companion for two friends. It does what AlecaFrame does with your inv
 
 Needs [Overwolf](https://www.overwolf.com) and Warframe. No AlecaFrame.
 
-1. **When the app is ready:** install it from the Overwolf store (or the `OrdisNexus-Overwolf.opk` file on [Releases](../../releases): double-click it and Overwolf installs it).
+1. **When the app is ready:** install it from the Overwolf store. Until then, download `OrdisNexus-Overwolf.opk` from [Releases](../../releases) and double-click it (Overwolf may ask you to allow an unlisted app).
 2. **For testing before then (developer mode):** in Overwolf choose **Settings → About → Development options → Load unpacked extension** and pick the `overwolf/ordis` folder.
 3. Start Warframe. Ordis registers for game events and your inventory arrives on its own. It refreshes when the game refreshes it (see [data notes](#things-to-know-about-the-data)).
 4. Share with a friend using a snapshot file or code (see [sharing](#how-sharing-and-privacy-work)). Choose what they may see first.
@@ -241,7 +241,7 @@ Nothing is written to AlecaFrame's folder. Delete the folder to reset the app.
 
 ## Building and the catalog
 
-- The Overwolf app is plain JavaScript with no build step. Tests: `cd overwolf/ordis && node --test`.
+- The Overwolf app is plain JavaScript with no build step. Tests: `cd overwolf/ordis && node --test test/*.test.js`. The `.opk` is a zip of the app folder, built by CI as `OrdisNexus-Overwolf.opk`. The version lives in `overwolf/ordis/manifest.json`; Overwolf delivers updates from that.
 - The legacy exe is built by GitHub Actions (`.github/workflows/build.yml`) on Windows for every push to `main`. It runs the unit tests first, then builds and publishes.
 - Locally on Windows: `cargo test` then `cargo build --release`.
 - When new items release, refresh the catalog with the **Catalog** workflow (Actions tab → Run workflow). It regenerates `assets/catalog.json.gz` and commits it.

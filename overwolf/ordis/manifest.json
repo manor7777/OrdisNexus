@@ -1,0 +1,43 @@
+{
+  "manifest_version": 1,
+  "type": "WebApp",
+  "meta": {
+    "name": "Ordis Nexus",
+    "version": "0.4.0",
+    "minimum-overwolf-version": "0.220.0",
+    "author": "manor7777",
+    "icon": "icon.png",
+    "icon_gray": "icon_gray.png",
+    "description": "Warframe companion and game AI assistant: inventory, foundry, relics, mastery, goals, and Ordis answering what you are close to completing."
+  },
+  "permissions": ["GameInfo"],
+  "data": {
+    "start_window": "background",
+    "hotkeys": {
+      "toggle_main": {
+        "title": "Show / hide Ordis Nexus",
+        "action-type": "toggle",
+        "default": "Ctrl+Shift+O"
+      }
+    },
+    "game_targeting": { "type": "dedicated", "game_ids": [8954] },
+    "game_events": [8954],
+    "launch_events": [
+      { "event": "GameLaunch", "event_data": { "game_ids": [8954] }, "start_minimized": true }
+    ],
+    "windows": {
+      "background": { "file": "background.html", "is_background_page": true },
+      "main": {
+        "file": "ui/main.html",
+        "desktop_only": true,
+        "native_window": true,
+        "resizable": true,
+        "transparent": false,
+        "show_in_taskbar": true,
+        "size": { "width": 1120, "height": 780 },
+        "min_size": { "width": 800, "height": 560 }
+      }
+    },
+    "developer": { "enable_auto_refresh": true, "reload_delay": 1000, "filter": "*.js;*.html;*.css" }
+  }
+}
