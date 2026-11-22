@@ -18,7 +18,7 @@ const store = {
 };
 
 const state = {
-  version: '0.4.4',
+  version: '0.4.5',
   acct: null,
   updatedAt: 0,
   goals: store.get(KEY.goals, []),

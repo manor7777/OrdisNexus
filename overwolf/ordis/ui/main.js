@@ -156,11 +156,14 @@ function draw() {
   if (keep && $('#q')) $('#q').focus();
 }
 
-overwolf.windows.getMainWindow((w) => {
+function start() {
+  let w = null;
+  try { w = overwolf.windows.getMainWindow(); } catch (e) { document.getElementById('view').textContent = `Could not reach the background window: ${e && e.message ? e.message : e}`; return; }
   bg = w && w.ordis;
   if (!bg) { document.getElementById('view').textContent = 'The Ordis Nexus background window is not running (it failed to start). Open the Overwolf developer tools for the background window and send the error to the author.'; return; }
   bg.subscribe(() => { if (document.activeElement && ['INPUT', 'SELECT'].includes(document.activeElement.tagName) && tab !== 'Settings') { pill(); return; } draw(); });
   bg.catalog.then((c) => { cat = c; draw(); }, () => draw());
   draw();
   setInterval(draw, 30000);
-});
+}
+start();
