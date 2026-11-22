@@ -380,6 +380,24 @@ impl Catalog {
 }
 
 #[cfg(test)]
+mod bundled {
+    use super::*;
+
+    /// The real catalog that ships inside the exe must load and answer lookups.
+    #[test]
+    fn bundled_catalog_loads() {
+        let c = Catalog::load();
+        assert!(c.primes.len() > 100, "primes: {}", c.primes.len());
+        assert!(c.relic_count() > 100);
+        assert!(c.find_item("wisp prime").is_some());
+        // a real end-to-end pass over every prime with an empty inventory must not panic
+        let acct = crate::account::Account::from_json(&serde_json::json!({"RegularCredits": 1000}));
+        let list = crate::close::close_to_completing(&c, &acct, &[], 5);
+        assert!(list.len() <= 5);
+    }
+}
+
+#[cfg(test)]
 pub fn test_catalog() -> Catalog {
     Catalog::from_json(
         r#"{"names":{"/lotus/types/recipes/warframerecipes/wispprimesystemsblueprint":"Wisp Prime Systems Blueprint",
