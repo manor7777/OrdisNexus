@@ -31,6 +31,9 @@ pub struct GepStatus {
     pub last_inventory_ms: i64,
     pub updates: u64,
     pub inventory_updates: u64,
+    /// Inventory documents that looked incomplete (for example a delta) and were ignored.
+    pub partial_updates: u64,
+    pub last_partial_keys: Option<String>,
     pub username: Option<String>,
     pub bridge_version: Option<String>,
     pub game_running: bool,
@@ -82,6 +85,12 @@ pub fn find_string(v: &Value, key: &str) -> Option<String> {
     }
 }
 
+/// A whole-account snapshot has the core fields. A delta or partial document
+/// must never replace a good inventory (it would show MR 0, 0 credits, nothing built).
+pub fn looks_complete(v: &Value) -> bool {
+    ["PlayerLevel", "RegularCredits", "MiscItems"].iter().all(|k| v.get(*k).is_some())
+}
+
 fn note(st: &mut GepStatus, text: String) {
     st.recent.push(text);
     if st.recent.len() > 60 {
@@ -117,8 +126,8 @@ pub fn handle_message(body: &str, status: &Shared, write_to: &std::path::Path) -
         _ => {
             let inv = find_inventory(&data);
             let user = find_string(&data, "username");
+            let mut partial: Option<String> = None;
             if let Some(inv) = &inv {
-                // validate before replacing a good file
                 let v: Value = serde_json::from_str(inv).map_err(|e| format!("inventory is not json: {e}"))?;
                 if !v.is_object() {
                     return Err("inventory is not an object".into());
@@ -126,10 +135,19 @@ pub fn handle_message(body: &str, status: &Shared, write_to: &std::path::Path) -
                 if let Some(parent) = write_to.parent() {
                     let _ = std::fs::create_dir_all(parent);
                 }
-                let tmp = write_to.with_extension("tmp");
-                std::fs::write(&tmp, inv).map_err(|e| e.to_string())?;
-                std::fs::rename(&tmp, write_to).map_err(|e| e.to_string())?;
-                stored = true;
+                if looks_complete(&v) {
+                    let tmp = write_to.with_extension("tmp");
+                    std::fs::write(&tmp, inv).map_err(|e| e.to_string())?;
+                    std::fs::rename(&tmp, write_to).map_err(|e| e.to_string())?;
+                    stored = true;
+                } else {
+                    let mut keys: Vec<&String> = v.as_object().map(|m| m.keys().collect()).unwrap_or_default();
+                    keys.sort();
+                    partial = Some(keys.iter().take(40).map(|k| k.as_str()).collect::<Vec<_>>().join(", "));
+                    // keep a sample so the shape can be inspected
+                    let sample: String = inv.chars().take(200_000).collect();
+                    let _ = std::fs::write(write_to.with_file_name("last_partial.json"), sample);
+                }
             }
             let mut st = status.lock().unwrap();
             st.last_contact_ms = now;
@@ -138,7 +156,11 @@ pub fn handle_message(body: &str, status: &Shared, write_to: &std::path::Path) -
             if user.is_some() {
                 st.username = user;
             }
-            if stored {
+            if let Some(k) = partial {
+                st.partial_updates += 1;
+                note(&mut st, format!("inventory ignored: incomplete (keys: {k})"));
+                st.last_partial_keys = Some(k);
+            } else if stored {
                 st.last_inventory_ms = now;
                 st.inventory_updates += 1;
                 note(&mut st, "info update WITH inventory".into());
@@ -273,14 +295,14 @@ mod tests {
 
     #[test]
     fn finds_inventory_in_the_getinfo_shape() {
-        let inner = r#"{"RegularCredits":5,"MiscItems":[{"ItemType":"/Lotus/Types/Items/MiscItems/Ferrite","ItemCount":9}]}"#;
+        let inner = r#"{"PlayerLevel":24,"RegularCredits":5,"MiscItems":[{"ItemType":"/Lotus/Types/Items/MiscItems/Ferrite","ItemCount":9}]}"#;
         let msg = serde_json::json!({"info": {"match_info": {"inventory": inner}}});
         assert_eq!(find_inventory(&msg).as_deref(), Some(inner));
     }
 
     #[test]
     fn finds_inventory_in_the_update_shape() {
-        let inner = r#"{"RegularCredits":5}"#;
+        let inner = r#"{"PlayerLevel":3,"RegularCredits":5,"MiscItems":[]}"#;
         let msg = serde_json::json!({"feature":"match_info","info":{"match_info":{"inventory":inner}}});
         assert!(find_inventory(&msg).is_some());
         assert!(find_inventory(&serde_json::json!({"info":{"game_info":{"username":"x"}}})).is_none());
@@ -290,13 +312,29 @@ mod tests {
     fn stores_inventory_and_username() {
         let status: Shared = Arc::new(Mutex::new(GepStatus::default()));
         let p = tmp("store");
-        let inner = r#"{"RegularCredits":5,"MiscItems":[{"ItemType":"/Lotus/Types/Items/MiscItems/Ferrite","ItemCount":9}]}"#;
+        let inner = r#"{"PlayerLevel":24,"RegularCredits":5,"MiscItems":[{"ItemType":"/Lotus/Types/Items/MiscItems/Ferrite","ItemCount":9}]}"#;
         let body = serde_json::json!({"kind":"info","ts":1,"data":{"info":{"match_info":{"inventory":inner},"game_info":{"username":"Tenno"}}}}).to_string();
         assert!(handle_message(&body, &status, &p).unwrap());
         assert_eq!(std::fs::read_to_string(&p).unwrap(), inner);
         let st = status.lock().unwrap();
         assert_eq!(st.inventory_updates, 1);
         assert_eq!(st.username.as_deref(), Some("Tenno"));
+    }
+
+    #[test]
+    fn partial_inventory_never_replaces_a_good_one() {
+        let status: Shared = Arc::new(Mutex::new(GepStatus::default()));
+        let p = tmp("partial");
+        let full = r#"{"PlayerLevel":24,"RegularCredits":3618275,"MiscItems":[]}"#;
+        let body = serde_json::json!({"kind":"info","data":{"match_info":{"inventory":full}}}).to_string();
+        assert!(handle_message(&body, &status, &p).unwrap());
+        let delta = r#"{"FusionPoints":95,"MiscItems":[{"ItemType":"/x","ItemCount":1}]}"#;
+        let body = serde_json::json!({"kind":"info","data":{"match_info":{"inventory":delta}}}).to_string();
+        assert!(!handle_message(&body, &status, &p).unwrap());
+        assert_eq!(std::fs::read_to_string(&p).unwrap(), full);
+        let st = status.lock().unwrap();
+        assert_eq!(st.partial_updates, 1);
+        assert!(st.last_partial_keys.as_deref().unwrap().contains("FusionPoints"));
     }
 
     #[test]
@@ -329,7 +367,7 @@ mod tests {
             let (c, _) = l.accept().unwrap();
             serve(c, st, pp);
         });
-        let inner = r#"{"RegularCredits":7}"#;
+        let inner = r#"{"PlayerLevel":3,"RegularCredits":7,"MiscItems":[]}"#;
         let body = serde_json::json!({"kind":"info","data":{"match_info":{"inventory":inner}}}).to_string();
         let mut c = TcpStream::connect(("127.0.0.1", port)).unwrap();
         write!(c, "POST /gep HTTP/1.1\r\nHost: x\r\nOrigin: overwolf-extension://abc\r\nContent-Type: text/plain\r\nContent-Length: {}\r\n\r\n{}", body.len(), body).unwrap();

@@ -46,6 +46,12 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                         if st.game_running { "is running" } else { "not detected" }
                     ),
                 );
+                if st.partial_updates > 0 {
+                    ui.colored_label(WARN, format!("{} incomplete inventory update(s) were ignored so they can't wipe your data.", st.partial_updates));
+                    if let Some(k) = &st.last_partial_keys {
+                        subtle(ui, &format!("Last one contained only: {k}"));
+                    }
+                }
                 if let Some(u) = &st.username {
                     subtle(ui, &format!("In-game name reported by Overwolf: {u}"));
                 }
