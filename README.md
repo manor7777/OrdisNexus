@@ -2,38 +2,39 @@
 
 A Warframe companion for two friends. It does what AlecaFrame does with your inventory, and adds the thing AlecaFrame doesn't: **comparing inventories with a friend** so you can see what to work on, what to trade and how to progress together.
 
-It is one Windows `.exe`. There is no installer, no server and no account. It reads AlecaFrame's own data file from its own folder, and friends exchange small snapshot files through a folder you both already sync.
+**Ordis Nexus is an Overwolf app.** It is meant to be installed through Overwolf and to run only inside it, with no separate program and no AlecaFrame. Your inventory comes straight from the game through Overwolf's Game Events Provider (GEP), the same source AlecaFrame itself uses. Friends exchange small snapshot files or codes, with no account and no server.
 
-> Status: built and tested automatically (unit tests run on every push), but **the author could not run it against a live game**. Everything that reads your inventory file is covered by tests with realistic data. The parts that depend on the running game (the Overwolf bridge) have not been run live, and the README explains how to check and adjust them. The game-log patterns were taken from a real `EE.log`.
+> **Where things stand.** The Overwolf app lives in [`overwolf/ordis/`](overwolf/ordis) and is being built now. Its engine (inventory parsing, build planning, goals, "what am I close to completing", relics, mastery) is written in plain JavaScript and tested with `node --test`. The window UI, install package and friend sharing are still to come. Until it is ready, the repository also contains the earlier **desktop build** (`OrdisNexus.exe` plus a small Overwolf "bridge"). That build is a stop-gap for testing, not the intended product, and it is described in [the legacy section](#legacy-desktop-build-and-bridge) at the bottom. Nothing here has been run against a live game by the author, so expect the first real-game check to need small fixes.
 
 ---
 
 ## Contents
 
-1. [Quick start](#quick-start)
+1. [Install](#install)
 2. [Features, tab by tab](#features-tab-by-tab)
 3. [How sharing and privacy work](#how-sharing-and-privacy-work)
 4. [Live game tracking](#live-game-tracking-eelog)
-5. [Overwolf support](#overwolf-support)
+5. [Overwolf app](#overwolf-app)
 6. [Voice and the optional language model](#voice-and-the-optional-language-model)
 7. [Auto-update](#auto-update)
 8. [Where data is stored](#where-data-is-stored)
 9. [Data sources](#data-sources)
 10. [Troubleshooting](#troubleshooting)
 11. [Building and the catalog](#building-and-the-catalog)
+12. [Legacy desktop build and bridge](#legacy-desktop-build-and-bridge)
 
 ---
 
-## Quick start
+## Install
 
-1. Install and run **AlecaFrame** at least once with Warframe open, so it writes `%LOCALAPPDATA%\AlecaFrame\lastData.dat`. Ordis Nexus reads that file. It does not talk to the game.
-2. Download `OrdisNexus.exe` from [Releases](../../releases) and run it.
-3. **Overview → Use AlecaFrame's file.** Your inventory loads and reloads itself whenever AlecaFrame updates the file.
-4. **Settings → Shared sync folder.** Both of you pick the same folder that syncs between your PCs (OneDrive, Dropbox, Google Drive, Syncthing). Each of you writes one `.nexus.json` snapshot there and reads the other's.
-5. **Friends → What you share.** Choose what your friend may see. Defaults are conservative.
-6. Put your names in **Settings** so snapshots and chat use them.
+Needs [Overwolf](https://www.overwolf.com) and Warframe. No AlecaFrame.
 
-No shared folder? Use **Friends → Export snapshot to a file** and send the file over Discord. Your friend either drags it onto the window or uses **Load a .nexus.json**.
+1. **When the app is ready:** install it from the Overwolf store (or the `OrdisNexus-Overwolf.opk` file on [Releases](../../releases): double-click it and Overwolf installs it).
+2. **For testing before then (developer mode):** in Overwolf choose **Settings → About → Development options → Load unpacked extension** and pick the `overwolf/ordis` folder.
+3. Start Warframe. Ordis registers for game events and your inventory arrives on its own. It refreshes when the game refreshes it (see [data notes](#things-to-know-about-the-data)).
+4. Share with a friend using a snapshot file or code (see [sharing](#how-sharing-and-privacy-work)). Choose what they may see first.
+
+The feature list below describes the whole product. Tabs marked as desktop-build only are being ported to the Overwolf app.
 
 ---
 
@@ -161,66 +162,30 @@ Warframe can change its log wording in an update. If missions stop being detecte
 
 ---
 
-## Overwolf support
+## Overwolf app
 
-Overwolf support is included as a small companion app, the **Ordis Nexus Bridge**. It is optional: everything works from AlecaFrame's file alone. With the bridge, Ordis Nexus also gets your **live inventory straight from the game** through Overwolf's Game Events Provider (GEP), so you do not need AlecaFrame's file at all, and you get a live connection status and game-running detection.
-
-> The author could not run Overwolf or the game. The bridge follows the documented GEP flow (set required features, `getInfo()`, then `onInfoUpdates2`) and the receiving side is covered by automated tests, including a real HTTP round trip. The Overwolf side has not been run, so expect to check it once. The troubleshooting list below covers what to look at.
-
-### How it works
+Ordis Nexus runs only inside Overwolf.
 
 ```
-Warframe → Overwolf GEP → Ordis Nexus Bridge (Overwolf app)
-                                   │  HTTP POST, this PC only (127.0.0.1:17642)
-                                   ▼
-                           Ordis Nexus (desktop app)
-                      writes %LOCALAPPDATA%\OrdisNexus\overwolf\inventory.json
-                      and loads it exactly like AlecaFrame's file
+Warframe → Overwolf GEP → Ordis Nexus (Overwolf app)
+                          background window: receives and stores inventory
+                          main window: all tabs, goals, Ordis chat
 ```
 
-- The bridge forwards every GEP update. The desktop app keeps the ones that carry `match_info.inventory`. It is the same JSON document AlecaFrame stores, so all tabs, goals, sharing and the assistant work unchanged.
-- It uses a plain local HTTP connection rather than files, so the Overwolf app needs **no file-system permission**. The listener is bound to `127.0.0.1` only and refuses requests from ordinary web pages (it only accepts `overwolf-extension://` origins).
-- Nothing goes over the internet.
-
-### Install the bridge (each of you, once)
-
-You need Overwolf installed. The bridge is not on the Overwolf store, so it is loaded in developer mode.
-
-**Option A: the packaged file.** Download `OrdisNexusBridge.opk` from [Releases](../../releases) and double-click it. Overwolf offers to install it.
-
-**Option B: unpacked folder (works on every Overwolf version).**
-1. Download or clone this repo.
-2. In Overwolf: **Settings → About → Development options → Load unpacked extension**.
-3. Choose the `overwolf/ordis-bridge` folder.
-4. Launch it from the Overwolf dev window the first time. It is set to start with Warframe afterwards.
-
-### Check it works
-
-1. Start Ordis Nexus, then start Warframe (with Overwolf running).
-2. Open **Live → Overwolf bridge**. It shows **connected** once the bridge has contacted the app, "Warframe is running" when the game is detected, and a count of inventory updates received.
-3. In **Settings → Inventory source** leave **Automatic** (uses whichever of the AlecaFrame file and the Overwolf copy is newest), or pick **Overwolf live inventory only**.
+- The app asks Overwolf for the `match_info` and `game_info` features, reads `match_info.inventory` (the whole account as JSON) and keeps it in the app's own storage.
+- A partial update never replaces a complete inventory. Only a document that looks like a full account (player level, credits and items present) is accepted.
+- No network connection is needed for your data. Nothing leaves your PC unless you share a snapshot.
+- Overwolf's developer account is needed to publish on the store. Until then it loads in developer mode as in [Install](#install).
 
 ### Things to know about the data
 
-From the research notes that came with the project:
-- Warframe does **not** push an updated inventory the instant a mission ends. The Overwolf inventory can stay stale for a while after a mission, and a refresh was observed when leaving the Relay. Ordis shows when the last inventory update arrived so you can tell.
-- Some updates carry no inventory at all. That is normal and shown separately in the Live tab.
-- `getInfo()` is not a way to force a refresh. The bridge polls it gently once a minute only as a backstop.
-- Mission summaries still work from the EE.log events, comparing your inventory before and after, once a newer inventory arrives.
-
-### Troubleshooting the bridge
-
-| Symptom | Check |
-|---|---|
-| Live shows "waiting for the Overwolf app" | The bridge is not running. Open it from the Overwolf dev window. Check that Overwolf is running and Warframe is a supported game. |
-| "Cannot listen on 127.0.0.1:17642" | Another copy of Ordis Nexus is already running, or another program uses that port. |
-| Connected, but zero inventory updates | Overwolf may not have given the app Warframe events. In the bridge's background-page console (Overwolf dev window → Inspect) look for `[ordis-bridge]` lines. Leaving the Relay or Orbiter often triggers the first inventory. |
-| "could not set required features" | The game may not have finished loading. The bridge retries for about a minute. If it never succeeds, the feature names in `background.js` (`match_info`, `game_info`) may need adjusting to Overwolf's current Warframe documentation. |
-| The bridge never detects the game | The manifest and `background.js` use Overwolf's id for Warframe (8954) and also match the window title "Warframe". If Overwolf lists a different id for Warframe, change it in both. |
+- Warframe does **not** push an updated inventory the instant a mission ends. It can stay stale for a while and often refreshes when you leave the Relay or Orbiter. Ordis shows when the last inventory update arrived.
+- Some updates carry no inventory. That is normal.
+- The app is checked against a real inventory sample for parsing, but the live Overwolf side has not been run by the author. The Settings diagnostics list the raw messages received, so a wrong feature name or game id can be spotted and fixed quickly.
 
 ### Overlays
 
-The bridge currently reads data only. It does not draw anything inside the game. An overlay would be a second window added to the same Overwolf app (see Overwolf's developer docs for in-game windows) that shows data from Ordis Nexus's local endpoint. The two apps already speak over `127.0.0.1:17642`, so that is a natural extension.
+Overlays are a second in-game window in the same app. Not built yet.
 
 ---
 
@@ -253,11 +218,11 @@ Nothing is written to AlecaFrame's folder. Delete the folder to reset the app.
 
 ## Data sources
 
-- **Your inventory:** AlecaFrame's `lastData.dat`. The file is encrypted with the key AlecaFrame itself uses. If a future AlecaFrame release changes it, set `ALECAFRAME_KEY` and `ALECAFRAME_IV` (hex) as environment variables to override.
+- **Your inventory:** Overwolf's Game Events Provider for Warframe. (The legacy desktop build can also read AlecaFrame's file.)
 - **Items, recipes, relics, resources:** a bundled catalog (`assets/catalog.json.gz`) generated from Warframe's public export, community drop-rate data (WFCD) and warframe.market item names.
 - **Prices:** warframe.market (optional).
 - **World state:** the community warframestat.us API.
-- No AlecaFrame code or assets are included. AlecaFrame was used only as a feature reference.
+- AlecaFrame is not used. No AlecaFrame code or assets are included; it was only a feature reference.
 
 ---
 
@@ -276,7 +241,20 @@ Nothing is written to AlecaFrame's folder. Delete the folder to reset the app.
 
 ## Building and the catalog
 
-- The exe is built by GitHub Actions (`.github/workflows/build.yml`) on Windows for every push to `main`. It runs the unit tests first, then builds and publishes.
+- The Overwolf app is plain JavaScript with no build step. Tests: `cd overwolf/ordis && node --test`.
+- The legacy exe is built by GitHub Actions (`.github/workflows/build.yml`) on Windows for every push to `main`. It runs the unit tests first, then builds and publishes.
 - Locally on Windows: `cargo test` then `cargo build --release`.
 - When new items release, refresh the catalog with the **Catalog** workflow (Actions tab → Run workflow). It regenerates `assets/catalog.json.gz` and commits it.
 - Code layout: `src/views/` has one file per tab. `src/share.rs` is the snapshot and privacy logic, `src/recipes.rs` and `src/goals.rs` the build planning, `src/trade.rs` the trade planner, `src/eelog.rs` the log watcher, and `src/assistant.rs` the chat.
+
+---
+
+## Legacy desktop build and bridge
+
+Before the Overwolf app existed, Ordis Nexus was built as a standalone Windows program, `OrdisNexus.exe`, that read AlecaFrame's `lastData.dat` and could optionally receive the live inventory from a small Overwolf app, the **Ordis Nexus Bridge** (`overwolf/ordis-bridge`, packaged as `OrdisNexusBridge.opk`). That needs developer mode in Overwolf and a separate program, so it is not suitable for ordinary users. It remains in the repository as an interim build and as a reference, and will be retired once the Overwolf app covers its features.
+
+Short notes if you still use it:
+- Download `OrdisNexus.exe` from [Releases](../../releases). **Overview → Use AlecaFrame's file**, or install the bridge and leave **Settings → Inventory source** on Automatic.
+- The bridge posts GEP updates to `127.0.0.1:17642` and the desktop app only accepts `overwolf-extension://` origins. **Live → Overwolf bridge** shows connection status and recent messages.
+- Sharing uses a synced folder (**Settings → Shared sync folder**) or exported `.nexus.json` files.
+- Startup problems are logged to `%LOCALAPPDATA%\OrdisNexus\startup.log`.
