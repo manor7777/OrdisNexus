@@ -26,7 +26,7 @@ jobs:
         run: |
           $v = (Select-String '^version = "(.*)"' Cargo.toml | Select-Object -First 1).Matches[0].Groups[1].Value
           "VERSION=$v" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          if (-not "${{ github.ref }}".StartsWith("refs/tags/")) {
+          if (-not "${{ github.ref }}".StartsWith("refs/tags/") -and "${{ inputs.release }}" -ne "true") {
             "APP_BUILD=${{ github.run_number }}" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           }
       - name: Test
