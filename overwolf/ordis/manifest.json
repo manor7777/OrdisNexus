@@ -3,7 +3,7 @@
   "type": "WebApp",
   "meta": {
     "name": "Ordis Nexus",
-    "version": "0.4.3",
+    "version": "0.4.4",
     "minimum-overwolf-version": "0.220.0",
     "author": "manor7777",
     "icon": "icon.png",

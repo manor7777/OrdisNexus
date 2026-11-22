@@ -7,5 +7,6 @@
 window.addEventListener('error', function (e) { var v = document.getElementById('view'); if (v) v.textContent = 'Ordis Nexus error: ' + (e.message || e) + ' (' + (e.filename || '') + ':' + (e.lineno || '') + ')'; });
 window.addEventListener('unhandledrejection', function (e) { var v = document.getElementById('view'); if (v) v.textContent = 'Ordis Nexus error: ' + ((e.reason && e.reason.message) || e.reason); });
 </script>
-<script type="module" src="main.js"></script>
+<script src="../bundle/ui.js"></script>
+<script>setTimeout(function(){ var v=document.getElementById("view"); if (v && v.textContent.indexOf("Starting Ordis Nexus")===0) v.textContent="Ordis Nexus could not start: the window script did not run. Please send this to the author."; }, 4000);</script>
 </body></html>

@@ -32,6 +32,9 @@ jobs:
       - name: Test Overwolf app engine
         working-directory: overwolf/ordis
         run: node --test test/*.test.js
+      - name: Bundle Overwolf app
+        working-directory: overwolf/ordis
+        run: node build.mjs
       - name: Test
         run: cargo test --release 2>&1
       - name: Build
@@ -45,7 +48,7 @@ jobs:
           Compress-Archive -Path overwolf/ordis-bridge/* -DestinationPath dist/OrdisNexusBridge.zip -Force
           Move-Item dist/OrdisNexusBridge.zip dist/OrdisNexusBridge.opk -Force
           Push-Location overwolf/ordis
-          Compress-Archive -Path manifest.json,background.html,background.js,icon.png,icon_gray.png,core,data,ui -DestinationPath ../../dist/OrdisNexus-Overwolf.zip -Force
+          Compress-Archive -Path manifest.json,background.html,background.js,icon.png,icon_gray.png,bundle,data,ui -DestinationPath ../../dist/OrdisNexus-Overwolf.zip -Force
           Pop-Location
           Copy-Item dist/OrdisNexus-Overwolf.zip dist/OrdisNexus-Overwolf.opk -Force
           Move-Item dist/OrdisNexus-Overwolf.zip dist/OrdisNexus-Overwolf-unpacked.zip -Force

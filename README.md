@@ -241,7 +241,7 @@ Nothing is written to AlecaFrame's folder. Delete the folder to reset the app.
 
 ## Building and the catalog
 
-- The Overwolf app is plain JavaScript with no build step. Tests: `cd overwolf/ordis && node --test test/*.test.js`. The `.opk` is a zip of the app folder, built by CI as `OrdisNexus-Overwolf.opk`. The version lives in `overwolf/ordis/manifest.json`; Overwolf delivers updates from that.
+- The Overwolf app is plain JavaScript. `node overwolf/ordis/build.mjs` bundles the modules into `bundle/background.js` and `bundle/ui.js`, which are the classic scripts the app actually loads (CI does this before packaging; the bundles are also committed so the repo folder loads directly). Tests: `cd overwolf/ordis && node --test test/*.test.js`. The `.opk` is a zip of the app folder, built by CI as `OrdisNexus-Overwolf.opk`. The version lives in `overwolf/ordis/manifest.json`; Overwolf delivers updates from that.
 - The legacy exe is built by GitHub Actions (`.github/workflows/build.yml`) on Windows for every push to `main`. It runs the unit tests first, then builds and publishes.
 - Locally on Windows: `cargo test` then `cargo build --release`.
 - When new items release, refresh the catalog with the **Catalog** workflow (Actions tab → Run workflow). It regenerates `assets/catalog.json.gz` and commits it.
